@@ -1,0 +1,53 @@
+plugins {
+    id 'java-library'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
+group = 'org.ballerinax.aws.s3'
+version = '0.1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url = 'https://maven.pkg.github.com/ballerina-platform/ballerina-lang'
+        credentials {
+            username = System.getenv("GITHUB_ACTOR") ?: "ballerina-bot"
+            password = System.getenv("GITHUB_TOKEN") ?: ""
+        }
+    }
+    maven {
+        url = 'https://dist.ballerina.io/maven'
+    }
+}
+
+def BALLERINA_HOME = '/usr/lib/ballerina/distributions/ballerina-2201.13.1'
+
+dependencies {
+    implementation platform('software.amazon.awssdk:bom:2.29.29')
+    implementation 'software.amazon.awssdk:s3'
+    implementation 'software.amazon.awssdk:url-connection-client'
+    
+    compileOnly fileTree(dir: System.getenv("BALLERINA_HOME") + '/bre/lib', include: ['*.jar'])
+}
+
+shadowJar {
+    archiveBaseName.set('aws-s3-native')
+    archiveClassifier.set('')
+    archiveVersion.set('0.1.0')
+    destinationDirectory.set(file("${project.rootDir}/ballerina/lib"))
+    
+    dependencies {
+        include(dependency('software.amazon.awssdk:.*'))
+        include(dependency('org.apache.httpcomponents:.*'))
+        include(dependency('org.reactivestreams:.*'))
+    }
+}
+
+tasks.named('build') {
+    dependsOn shadowJar
+}
