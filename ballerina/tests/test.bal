@@ -41,16 +41,15 @@ ConnectionConfig amazonS3Config = {
 };
 
 
-Client? amazonS3Client = ();
+Client s3Client = check new (amazonS3Config);
 
 @test:BeforeSuite
 function initializeClient() returns error? {
-    amazonS3Client = check new (amazonS3Config);
+    // Client is already initialized at module level
 }
 
 @test:Config {}
 function testCreateBucket() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     CreateBucketConfig bucketConfig = {acl: PRIVATE};
     error? result = s3Client->createBucket(testBucketName, bucketConfig);
     // Ignore error if bucket already exists (owned by us)
@@ -65,7 +64,6 @@ function testCreateBucket() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testCreateObjectWithMetadata() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     map<string> metadata = {
         "Description": "This is a text file",
         "Language": "English"
@@ -86,7 +84,6 @@ function testCreateObjectWithMetadata() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testListBuckets() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     // Use trap to catch any panic from the client method
     Bucket[]|error response = trap s3Client->listBuckets();
     if response is error {
@@ -103,7 +100,6 @@ function testListBuckets() returns error? {
     dependsOn: [testListBuckets]
 }
 function testCreateObject() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     check s3Client->putObject(testBucketName, fileName, content);
 }
 
@@ -111,7 +107,6 @@ function testCreateObject() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectFromFile() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     
     // Create a temporary file with test content
     string tempFilePath = "./tests/temp_upload_file.txt";
@@ -140,7 +135,6 @@ function testPutObjectFromFile() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectFromFileWithMetadata() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     
     // Create a temporary file with test content
     string tempFilePath = "./tests/temp_upload_file_meta.txt";
@@ -169,7 +163,6 @@ function testPutObjectFromFileWithMetadata() returns error? {
 
 @test:Config {}
 function testPutObjectFromFileWithInvalidPath() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     error? result = s3Client->putObjectFromFile(testBucketName, "invalid.txt", "/non/existent/path/file.txt");
     test:assertTrue(result is error, msg = "Expected an error for non-existent file path");
 }
@@ -178,7 +171,6 @@ function testPutObjectFromFileWithInvalidPath() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectWithStringContent() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_string_content.txt";
     string stringContent = "This is a string content for S3 upload";
     
@@ -203,7 +195,6 @@ function testPutObjectWithStringContent() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectWithXmlContent() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_xml_content.xml";
     xml xmlContent = xml `<root><message>Hello from XML</message><id>123</id></root>`;
     
@@ -228,7 +219,6 @@ function testPutObjectWithXmlContent() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectWithJsonContent() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_json_content.json";
     json jsonContent = {
         "name": "Test Object",
@@ -260,7 +250,6 @@ function testPutObjectWithJsonContent() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectWithByteArrayContent() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_byte_array_content.bin";
     byte[] byteContent = [72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100]; // "Hello World" in bytes
     
@@ -284,7 +273,6 @@ function testPutObjectWithByteArrayContent() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectAsStream() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_stream_content.txt";
     string tempFilePath = "./tests/temp_stream_file.txt";
     string streamContent = "This is content uploaded via stream";
@@ -316,7 +304,6 @@ function testPutObjectAsStream() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectAsStreamWithMetadata() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_stream_with_metadata.txt";
     string tempFilePath = "./tests/temp_stream_meta_file.txt";
     string streamContent = "Stream content with metadata";
@@ -367,7 +354,6 @@ function testPutObjectAsStreamWithMetadata() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectAsStreamLargeFile() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_stream_large_content.txt";
     string tempFilePath = "./tests/temp_large_stream_file.txt";
     
@@ -418,7 +404,6 @@ function testPutObjectAsStreamLargeFile() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectAsStreamDirect() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_put_object_as_stream_direct.txt";
     string tempFilePath = "./tests/temp_stream_direct_file.txt";
     string streamContent = "This is content uploaded directly via putObjectAsStream method";
@@ -457,7 +442,6 @@ function testPutObjectAsStreamDirect() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testPutObjectAsStreamDirectWithMetadata() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_put_object_as_stream_direct_meta.txt";
     string tempFilePath = "./tests/temp_stream_direct_meta_file.txt";
     string streamContent = "Stream content with metadata via putObjectAsStream";
@@ -497,7 +481,6 @@ function testPutObjectAsStreamDirectWithMetadata() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testUploadPartAsStreamDirect() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_upload_part_as_stream_direct.txt";
     string tempFilePath = "./tests/temp_upload_part_stream.txt";
     
@@ -538,7 +521,6 @@ function testUploadPartAsStreamDirect() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testUploadMultiplePartsAsStreamDirect() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_multi_part_stream_direct.txt";
     string tempFilePath1 = "./tests/temp_part1_stream.txt";
     string tempFilePath2 = "./tests/temp_part2_stream.txt";
@@ -598,14 +580,12 @@ function testUploadMultiplePartsAsStreamDirect() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testGetBucketLocation() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string location = check s3Client->getBucketLocation(testBucketName);
     test:assertEquals(location, region, "Bucket location should match the configured region");
 }
 
 @test:Config {}
 function testGetBucketLocationWithInvalidBucket() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string|error result = s3Client->getBucketLocation("non-existent-bucket-12345-xyz");
     test:assertTrue(result is error, msg = "Expected an error for non-existent bucket");
 }
@@ -614,7 +594,6 @@ function testGetBucketLocationWithInvalidBucket() returns error? {
     dependsOn: [testCreateObject]
 }
 function testGetObjectMetadata() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     // Use trap to catch any panic from the client method (known type cast issue)
     ObjectMetadata|error metadataResult = trap s3Client->getObjectMetadata(testBucketName, fileName);
     
@@ -635,7 +614,6 @@ function testGetObjectMetadata() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testGetObjectMetadataWithCustomMetadata() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "test_metadata_object.txt";
     byte[] objectContent = "Test content for metadata".toBytes();
     
@@ -671,7 +649,6 @@ function testGetObjectMetadataWithCustomMetadata() returns error? {
 
 @test:Config {}
 function testGetObjectMetadataForNonExistentObject() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     ObjectMetadata|error result = s3Client->getObjectMetadata(testBucketName, "non-existent-object-xyz.txt");
     test:assertTrue(result is error, msg = "Expected an error for non-existent object");
 }
@@ -680,7 +657,6 @@ function testGetObjectMetadataForNonExistentObject() returns error? {
     dependsOn: [testCreateObject]
 }
 function testCopyObject() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string sourceKey = "copy_source_object.txt";
     string destinationKey = "copy_destination_object.txt";
     byte[] sourceContent = "Content to be copied".toBytes();
@@ -710,7 +686,6 @@ function testCopyObject() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testCopyObjectWithNewName() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string sourceKey = "original_file.txt";
     string destinationKey = "renamed_file.txt";
     byte[] content = "File content for rename test".toBytes();
@@ -736,7 +711,6 @@ function testCopyObjectWithNewName() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testCopyObjectWithMetadata() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string sourceKey = "source_with_metadata.txt";
     string destinationKey = "dest_with_new_metadata.txt";
     byte[] content = "Content with metadata".toBytes();
@@ -770,7 +744,6 @@ function testCopyObjectWithMetadata() returns error? {
 
 @test:Config {}
 function testCopyObjectFromNonExistentSource() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     error? result = s3Client->copyObject(testBucketName, "non-existent-source.txt", testBucketName, "destination.txt");
     test:assertTrue(result is error, msg = "Expected an error when copying from non-existent source");
 }
@@ -779,7 +752,6 @@ function testCopyObjectFromNonExistentSource() returns error? {
     dependsOn: [testCreateObject]
 }
 function testDoesObjectExist() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     
     // Test with existing object (fileName is created in testCreateObject)
     boolean exists = s3Client->doesObjectExist(testBucketName, fileName);
@@ -788,7 +760,6 @@ function testDoesObjectExist() returns error? {
 
 @test:Config {}
 function testDoesObjectExistForNonExistentObject() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     
     // Test with non-existent object
     boolean exists = s3Client->doesObjectExist(testBucketName, "non-existent-object-xyz-123.txt");
@@ -799,7 +770,6 @@ function testDoesObjectExistForNonExistentObject() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testDoesObjectExistAfterUploadAndDelete() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "existence_test_object.txt";
     byte[] objectContent = "Test content for existence check".toBytes();
     
@@ -824,7 +794,6 @@ function testDoesObjectExistAfterUploadAndDelete() returns error? {
 
 @test:Config {}
 function testDoesObjectExistWithEmptyKey() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     
     // Test with empty object key - should throw an error since empty key is invalid
     boolean|error result = trap s3Client->doesObjectExist(testBucketName, "");
@@ -835,7 +804,6 @@ function testDoesObjectExistWithEmptyKey() returns error? {
     dependsOn: [testGetObject]
 }
 function testCreatePresignedUrlGet() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     PresignedUrlConfig urlConfig = {expirationMinutes: 60, httpMethod: "GET"};
     string url = check s3Client->createPresignedUrl(testBucketName, fileName, urlConfig);
     http:Client httpClient = check new (url);
@@ -847,7 +815,6 @@ function testCreatePresignedUrlGet() returns error? {
     dependsOn: [testGetObject]
 }
 function testCreatePresignedUrlPut() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     PresignedUrlConfig urlConfig = {expirationMinutes: 60, httpMethod: "PUT"};
     string url = check s3Client->createPresignedUrl(testBucketName, fileName, urlConfig);
     http:Client httpClient = check new (url);
@@ -859,7 +826,6 @@ function testCreatePresignedUrlPut() returns error? {
     dependsOn: [testGetObject]
 }
 function testCreatePresignedUrlWithInvalidObjectName() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     PresignedUrlConfig urlConfig = {expirationMinutes: 60, httpMethod: "GET"};
     string|error url = s3Client->createPresignedUrl(testBucketName, "", urlConfig);
     test:assertTrue(url is error, msg = "Expected an error but got a URL");
@@ -871,7 +837,6 @@ function testCreatePresignedUrlWithInvalidObjectName() returns error? {
 }
 
 function testCreatePresignedUrlWithInvalidBucketName() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     PresignedUrlConfig urlConfig = {expirationMinutes: 60, httpMethod: "GET"};
     string|error url = s3Client->createPresignedUrl("", fileName, urlConfig);
     test:assertTrue(url is error, msg = "Expected an error but got a URL");
@@ -882,7 +847,6 @@ function testCreatePresignedUrlWithInvalidBucketName() returns error? {
     dependsOn: [testCreateObject]
 }
 function testGetObject() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     stream<byte[], Error?> response = check s3Client->getObject(testBucketName, fileName);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
@@ -895,7 +859,6 @@ function testGetObject() returns error? {
     dependsOn: [testGetObject]
 }
 function testListObjects() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     ListObjectsConfig listConfig = {fetchOwner: true};
     ListObjectsResponse|error response = s3Client->listObjects(testBucketName, listConfig);
     if response is error {
@@ -910,7 +873,6 @@ function testListObjects() returns error? {
     dependsOn: [testListObjects]
 }
 function testDeleteObject() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     check s3Client->deleteObject(testBucketName, fileName);
 }
 
@@ -918,7 +880,6 @@ function testDeleteObject() returns error? {
     dependsOn: [testListObjects]
 }
 function testCreateMultipartUpload() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     uploadId = check s3Client->createMultipartUpload(testBucketName, fileName2);
     test:assertTrue(uploadId.length() > 0, "Failed to create multipart upload");
 }
@@ -927,7 +888,6 @@ function testCreateMultipartUpload() returns error? {
     dependsOn: [testCreateMultipartUpload]
 }
 function testUploadPart() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string etag = check s3Client->uploadPart(testBucketName, fileName2, uploadId, 1, content);
     partNumbers.push(1);
     etags.push(etag);
@@ -938,7 +898,6 @@ function testUploadPart() returns error? {
     dependsOn: [testUploadPart]
 }
 function testCompleteMultipartUpload() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     check s3Client->completeMultipartUpload(testBucketName, fileName2, uploadId, partNumbers, etags);
 }
 
@@ -946,7 +905,6 @@ function testCompleteMultipartUpload() returns error? {
     dependsOn: [testCompleteMultipartUpload]
 }
 function testDeleteMultipartUpload() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     check s3Client->deleteObject(testBucketName, fileName2);
 }
 
@@ -954,7 +912,6 @@ function testDeleteMultipartUpload() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testUploadPartAsStream() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "stream_multipart_upload.txt";
     string tempFilePath = "./tests/temp_stream_part.txt";
     
@@ -994,7 +951,6 @@ function testUploadPartAsStream() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testUploadMultiplePartsAsStream() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "multi_part_stream_upload.txt";
     
     // AWS S3 requires each part (except the last) to be at least 5MB
@@ -1045,7 +1001,6 @@ function testUploadMultiplePartsAsStream() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testAbortMultipartUploadForStreamTest() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string objectKey = "abort_stream_multipart.txt";
     
     // Create multipart upload
@@ -1069,7 +1024,6 @@ function testAbortMultipartUploadForStreamTest() returns error? {
     dependsOn: [testDeleteMultipartUpload, testDeleteObject]
 }
 function testDeleteBucketApi() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     string tempBucketName = testBucketName + "-temp-delete-test";
     
     // Create a temporary bucket for deletion test
@@ -1091,7 +1045,6 @@ function testDeleteBucketApi() returns error? {
 
 @test:Config {}
 function testDeleteBucketWithInvalidName() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     error? result = s3Client->deleteBucket("non-existent-bucket-12345-xyz");
     test:assertTrue(result is error, msg = "Expected an error for non-existent bucket");
 }
@@ -1101,13 +1054,11 @@ function testDeleteBucketWithInvalidName() returns error? {
     before: testCreateMultipartUpload
 }
 function testAbortFileUpload() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     check s3Client->abortMultipartUpload(testBucketName, fileName2, uploadId);
 }
 
 @test:AfterSuite {}
 function testDeleteBucket() returns error? {
-    Client s3Client = check amazonS3Client.ensureType();
     // Clean up any remaining objects before deleting bucket
     ListObjectsResponse|error listResult = s3Client->listObjects(testBucketName);
     if listResult is ListObjectsResponse {
