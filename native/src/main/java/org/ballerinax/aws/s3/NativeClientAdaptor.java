@@ -34,6 +34,7 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
+import software.amazon.awssdk.profiles.ProfileFile;
 
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -208,7 +209,30 @@ public class NativeClientAdaptor {
                 // ProfileAuthConfig branch
             } else if (auth.containsKey(StringUtils.fromString("profileName"))) {
                 String profileName = auth.getStringValue(StringUtils.fromString("profileName")).getValue();
-                credentialsProvider = ProfileCredentialsProvider.create(profileName);
+                
+                // Check if custom credentials file path is provided
+                if (auth.containsKey(StringUtils.fromString("credentialsFilePath"))) {
+                    Object credentialsFilePathObj = auth.get(StringUtils.fromString("credentialsFilePath"));
+                    if (credentialsFilePathObj instanceof BString) {
+                        String credentialsFilePath = ((BString) credentialsFilePathObj).getValue();
+                        if (!credentialsFilePath.isEmpty()) {
+                            ProfileFile profileFile = ProfileFile.builder()
+                                    .content(java.nio.file.Paths.get(credentialsFilePath))
+                                    .type(ProfileFile.Type.CREDENTIALS)
+                                    .build();
+                            credentialsProvider = ProfileCredentialsProvider.builder()
+                                    .profileFile(profileFile)
+                                    .profileName(profileName)
+                                    .build();
+                        } else {
+                            credentialsProvider = ProfileCredentialsProvider.create(profileName);
+                        }
+                    } else {
+                        credentialsProvider = ProfileCredentialsProvider.create(profileName);
+                    }
+                } else {
+                    credentialsProvider = ProfileCredentialsProvider.create(profileName);
+                }
 
             } else {
                 return S3ExceptionUtils.createError("Unsupported auth configuration");
