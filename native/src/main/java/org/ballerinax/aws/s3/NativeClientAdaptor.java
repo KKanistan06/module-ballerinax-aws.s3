@@ -1,15 +1,28 @@
+// Copyright (c) 2025 WSO2 LLC. (http://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package org.ballerinax.aws.s3;
 
 import io.ballerina.runtime.api.Environment;
 import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
+import io.ballerina.runtime.api.types.MapType;
 import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.values.BStream;
-import io.ballerina.runtime.api.types.MethodType;
-import io.ballerina.runtime.api.types.ObjectType;
-import io.ballerina.runtime.api.types.Type;
 import io.ballerina.runtime.api.values.BArray;
-import io.ballerina.runtime.api.values.BError;
 import io.ballerina.runtime.api.values.BObject;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.api.values.BMap;
@@ -18,6 +31,7 @@ import io.ballerina.runtime.api.utils.StringUtils;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 
@@ -25,7 +39,31 @@ import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.Bucket;
+import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
+import software.amazon.awssdk.services.s3.model.CompletedPart;
+import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse;
+import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetBucketLocationRequest;
+import software.amazon.awssdk.services.s3.model.GetBucketLocationResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.UploadPartRequest;
+import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 import software.amazon.awssdk.services.s3.waiters.S3Waiter;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -33,6 +71,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.time.Duration;
@@ -41,11 +80,91 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Consumer;
 
 public class NativeClientAdaptor {
 
     private static final String NATIVE_CLIENT = "NATIVE_S3_CLIENT";
     private static final String NATIVE_CONFIG = "NATIVE_CONNECTION_CONFIG";
+
+    private static Optional<String> getStringConfig(BMap<BString, Object> config, String key) {
+        if (config.containsKey(StringUtils.fromString(key))) {
+            Object obj = config.get(StringUtils.fromString(key));
+            if (obj instanceof BString) {
+                String value = ((BString) obj).getValue();
+                if (!value.isEmpty()) {
+                    return Optional.of(value);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Long> getLongConfig(BMap<BString, Object> config, String key) {
+        if (config.containsKey(StringUtils.fromString(key))) {
+            Object obj = config.get(StringUtils.fromString(key));
+            if (obj instanceof Long) {
+                return Optional.of((Long) obj);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Boolean> getBooleanConfig(BMap<BString, Object> config, String key) {
+        if (config.containsKey(StringUtils.fromString(key))) {
+            Object obj = config.get(StringUtils.fromString(key));
+            if (obj instanceof Boolean) {
+                return Optional.of((Boolean) obj);
+            }
+        }
+        return Optional.empty();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Optional<Map<String, String>> getMetadataConfig(BMap<BString, Object> config, String key) {
+        if (config.containsKey(StringUtils.fromString(key))) {
+            Object metaObj = config.get(StringUtils.fromString(key));
+            if (metaObj instanceof BMap) {
+                BMap<BString, Object> metaMap = (BMap<BString, Object>) metaObj;
+                Map<String, String> metadata = new HashMap<>();
+                metaMap.entrySet().forEach(entry -> {
+                    Object value = entry.getValue();
+                    if (value instanceof BString) {
+                        metadata.put(entry.getKey().getValue(), ((BString) value).getValue());
+                    }
+                });
+                if (!metadata.isEmpty()) {
+                    return Optional.of(metadata);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static void applyStringConfig(BMap<BString, Object> config, String key, Consumer<String> setter) {
+        getStringConfig(config, key).ifPresent(setter);
+    }
+
+    private static void applyLongConfig(BMap<BString, Object> config, String key, Consumer<Long> setter) {
+        getLongConfig(config, key).ifPresent(setter);
+    }
+
+    private static void applyBooleanConfig(BMap<BString, Object> config, String key, Consumer<Boolean> setter) {
+        getBooleanConfig(config, key).ifPresent(setter);
+    }
+
+    private static void applyIntConfig(BMap<BString, Object> config, String key, Consumer<Integer> setter) {
+        getLongConfig(config, key).ifPresent(val -> setter.accept(val.intValue()));
+    }
+
+    private static void applyMetadataConfig(BMap<BString, Object> config, String key, Consumer<Map<String, String>> setter) {
+        getMetadataConfig(config, key).ifPresent(setter);
+    }
+
+    private static void applyInstantConfig(BMap<BString, Object> config, String key, Consumer<Instant> setter) {
+        getStringConfig(config, key).ifPresent(val -> setter.accept(Instant.parse(val)));
+    }
 
     // Client Initialization Method
     @SuppressWarnings("unchecked")
@@ -66,9 +185,24 @@ public class NativeClientAdaptor {
             if (auth.containsKey(StringUtils.fromString("accessKeyId"))) {
                 String accessKeyId = auth.getStringValue(StringUtils.fromString("accessKeyId")).getValue();
                 String secretAccessKey = auth.getStringValue(StringUtils.fromString("secretAccessKey")).getValue();
-                // sessionToken is currently ignored at SDK level; can be wired separately if
-                // needed
-                AwsCredentials credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+                
+                AwsCredentials credentials;
+                // Check if sessionToken is provided for temporary credentials
+                if (auth.containsKey(StringUtils.fromString("sessionToken"))) {
+                    Object sessionTokenObj = auth.get(StringUtils.fromString("sessionToken"));
+                    if (sessionTokenObj instanceof BString) {
+                        String sessionToken = ((BString) sessionTokenObj).getValue();
+                        if (!sessionToken.isEmpty()) {
+                            credentials = AwsSessionCredentials.create(accessKeyId, secretAccessKey, sessionToken);
+                        } else {
+                            credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+                        }
+                    } else {
+                        credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+                    }
+                } else {
+                    credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+                }
                 credentialsProvider = StaticCredentialsProvider.create(credentials);
 
                 // ProfileAuthConfig branch
@@ -118,24 +252,9 @@ public class NativeClientAdaptor {
         try {
             CreateBucketRequest.Builder builder = CreateBucketRequest.builder().bucket(bucket);
 
-            if (config.containsKey(StringUtils.fromString("acl"))) {
-                Object aclObj = config.get(StringUtils.fromString("acl"));
-                if (aclObj instanceof BString) {
-                    builder.acl(((BString) aclObj).getValue());
-                }
-            }
-            if (config.containsKey(StringUtils.fromString("objectOwnership"))) {
-                Object ownershipObj = config.get(StringUtils.fromString("objectOwnership"));
-                if (ownershipObj instanceof BString) {
-                    builder.objectOwnership(((BString) ownershipObj).getValue());
-                }
-            }
-            if (config.containsKey(StringUtils.fromString("objectLockEnabled"))) {
-                Object lockObj = config.get(StringUtils.fromString("objectLockEnabled"));
-                if (lockObj instanceof Boolean) {
-                    builder.objectLockEnabledForBucket((Boolean) lockObj);
-                }
-            }
+            applyStringConfig(config, "acl", builder::acl);
+            applyStringConfig(config, "objectOwnership", builder::objectOwnership);
+            applyBooleanConfig(config, "objectLockEnabled", builder::objectLockEnabledForBucket);
 
             s3Client.createBucket(builder.build());
 
@@ -233,10 +352,20 @@ public class NativeClientAdaptor {
             
             applyPutObjectConfig(builder, config);
             
-            // Create an InputStream that reads from the Ballerina stream
+            // Buffer the stream content to get accurate length
+            // This is necessary because S3 requires content length upfront
             InputStream inputStream = new BallerinaStreamInputStream(env, contentStream);
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, bytesRead);
+            }
+            buffer.flush();
+            byte[] contentBytes = buffer.toByteArray();
+            inputStream.close();
             
-            s3.putObject(builder.build(), RequestBody.fromInputStream(inputStream, inputStream.available()));
+            s3.putObject(builder.build(), RequestBody.fromBytes(contentBytes));
             
             return null;
         } catch (Exception e) {
@@ -244,67 +373,17 @@ public class NativeClientAdaptor {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static void applyPutObjectConfig(PutObjectRequest.Builder builder, BMap<BString, Object> config) {
-        if (config.containsKey(StringUtils.fromString("contentType"))) {
-            Object obj = config.get(StringUtils.fromString("contentType"));
-            if (obj instanceof BString)
-                builder.contentType(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("acl"))) {
-            Object obj = config.get(StringUtils.fromString("acl"));
-            if (obj instanceof BString)
-                builder.acl(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("storageClass"))) {
-            Object obj = config.get(StringUtils.fromString("storageClass"));
-            if (obj instanceof BString)
-                builder.storageClass(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("cacheControl"))) {
-            Object obj = config.get(StringUtils.fromString("cacheControl"));
-            if (obj instanceof BString)
-                builder.cacheControl(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("contentDisposition"))) {
-            Object obj = config.get(StringUtils.fromString("contentDisposition"));
-            if (obj instanceof BString)
-                builder.contentDisposition(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("contentEncoding"))) {
-            Object obj = config.get(StringUtils.fromString("contentEncoding"));
-            if (obj instanceof BString)
-                builder.contentEncoding(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("contentLanguage"))) {
-            Object obj = config.get(StringUtils.fromString("contentLanguage"));
-            if (obj instanceof BString)
-                builder.contentLanguage(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("tagging"))) {
-            Object obj = config.get(StringUtils.fromString("tagging"));
-            if (obj instanceof BString)
-                builder.tagging(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("serverSideEncryption"))) {
-            Object obj = config.get(StringUtils.fromString("serverSideEncryption"));
-            if (obj instanceof BString)
-                builder.serverSideEncryption(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("metadata"))) {
-            Object metaObj = config.get(StringUtils.fromString("metadata"));
-            if (metaObj instanceof BMap) {
-                BMap<BString, Object> metaMap = (BMap<BString, Object>) metaObj;
-                Map<String, String> metadata = new HashMap<>();
-                metaMap.entrySet().forEach(entry -> {
-                    Object value = entry.getValue();
-                    if (value instanceof BString) {
-                        metadata.put(entry.getKey().getValue(), ((BString) value).getValue());
-                    }
-                });
-                builder.metadata(metadata);
-            }
-        }
+        applyStringConfig(config, "contentType", builder::contentType);
+        applyStringConfig(config, "acl", builder::acl);
+        applyStringConfig(config, "storageClass", builder::storageClass);
+        applyStringConfig(config, "cacheControl", builder::cacheControl);
+        applyStringConfig(config, "contentDisposition", builder::contentDisposition);
+        applyStringConfig(config, "contentEncoding", builder::contentEncoding);
+        applyStringConfig(config, "contentLanguage", builder::contentLanguage);
+        applyStringConfig(config, "tagging", builder::tagging);
+        applyStringConfig(config, "serverSideEncryption", builder::serverSideEncryption);
+        applyMetadataConfig(config, "metadata", builder::metadata);
     }
 
     public static Object getObject(Environment env, BObject clientObj, BString bucket, BString key,
@@ -315,41 +394,13 @@ public class NativeClientAdaptor {
                     .bucket(bucket.getValue())
                     .key(key.getValue());
 
-            if (config.containsKey(StringUtils.fromString("versionId"))) {
-                Object obj = config.get(StringUtils.fromString("versionId"));
-                if (obj instanceof BString)
-                    builder.versionId(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("range"))) {
-                Object obj = config.get(StringUtils.fromString("range"));
-                if (obj instanceof BString)
-                    builder.range(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("ifMatch"))) {
-                Object obj = config.get(StringUtils.fromString("ifMatch"));
-                if (obj instanceof BString)
-                    builder.ifMatch(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("ifNoneMatch"))) {
-                Object obj = config.get(StringUtils.fromString("ifNoneMatch"));
-                if (obj instanceof BString)
-                    builder.ifNoneMatch(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("ifModifiedSince"))) {
-                Object obj = config.get(StringUtils.fromString("ifModifiedSince"));
-                if (obj instanceof BString)
-                    builder.ifModifiedSince(Instant.parse(((BString) obj).getValue()));
-            }
-            if (config.containsKey(StringUtils.fromString("ifUnmodifiedSince"))) {
-                Object obj = config.get(StringUtils.fromString("ifUnmodifiedSince"));
-                if (obj instanceof BString)
-                    builder.ifUnmodifiedSince(Instant.parse(((BString) obj).getValue()));
-            }
-            if (config.containsKey(StringUtils.fromString("partNumber"))) {
-                Object obj = config.get(StringUtils.fromString("partNumber"));
-                if (obj instanceof Long)
-                    builder.partNumber(((Long) obj).intValue());
-            }
+            applyStringConfig(config, "versionId", builder::versionId);
+            applyStringConfig(config, "range", builder::range);
+            applyStringConfig(config, "ifMatch", builder::ifMatch);
+            applyStringConfig(config, "ifNoneMatch", builder::ifNoneMatch);
+            applyInstantConfig(config, "ifModifiedSince", builder::ifModifiedSince);
+            applyInstantConfig(config, "ifUnmodifiedSince", builder::ifUnmodifiedSince);
+            applyIntConfig(config, "partNumber", builder::partNumber);
 
             ResponseInputStream<GetObjectResponse> s3Stream = s3.getObject(builder.build());
             BObject streamWrapper = ValueCreator.createObjectValue(env.getCurrentModule(), "S3StreamResult");
@@ -367,21 +418,9 @@ public class NativeClientAdaptor {
                     .bucket(bucket.getValue())
                     .key(key.getValue());
 
-            if (config.containsKey(StringUtils.fromString("versionId"))) {
-                Object obj = config.get(StringUtils.fromString("versionId"));
-                if (obj instanceof BString)
-                    builder.versionId(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("mfa"))) {
-                Object obj = config.get(StringUtils.fromString("mfa"));
-                if (obj instanceof BString)
-                    builder.mfa(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("bypassGovernanceRetention"))) {
-                Object obj = config.get(StringUtils.fromString("bypassGovernanceRetention"));
-                if (obj instanceof Boolean)
-                    builder.bypassGovernanceRetention((Boolean) obj);
-            }
+            applyStringConfig(config, "versionId", builder::versionId);
+            applyStringConfig(config, "mfa", builder::mfa);
+            applyBooleanConfig(config, "bypassGovernanceRetention", builder::bypassGovernanceRetention);
 
             s3.deleteObject(builder.build());
             return null;
@@ -399,45 +438,16 @@ public class NativeClientAdaptor {
             ListObjectsV2Request.Builder builder = ListObjectsV2Request.builder()
                     .bucket(bucket.getValue());
 
-            if (config.containsKey(StringUtils.fromString("prefix"))) {
-                Object obj = config.get(StringUtils.fromString("prefix"));
-                if (obj instanceof BString && !((BString) obj).getValue().isEmpty()) {
-                    builder.prefix(((BString) obj).getValue());
-                }
-            }
-            if (config.containsKey(StringUtils.fromString("delimiter"))) {
-                Object obj = config.get(StringUtils.fromString("delimiter"));
-                if (obj instanceof BString && !((BString) obj).getValue().isEmpty()) {
-                    builder.delimiter(((BString) obj).getValue());
-                }
-            }
-            if (config.containsKey(StringUtils.fromString("maxKeys"))) {
-                Object obj = config.get(StringUtils.fromString("maxKeys"));
-                if (obj instanceof Long) {
-                    builder.maxKeys(((Long) obj).intValue());
-                }
-            }
-            if (config.containsKey(StringUtils.fromString("continuationToken"))) {
-                Object obj = config.get(StringUtils.fromString("continuationToken"));
-                if (obj instanceof BString && !((BString) obj).getValue().isEmpty()) {
-                    builder.continuationToken(((BString) obj).getValue());
-                }
-            }
-            if (config.containsKey(StringUtils.fromString("startAfter"))) {
-                Object obj = config.get(StringUtils.fromString("startAfter"));
-                if (obj instanceof BString && !((BString) obj).getValue().isEmpty()) {
-                    builder.startAfter(((BString) obj).getValue());
-                }
-            }
-            if (config.containsKey(StringUtils.fromString("fetchOwner"))) {
-                Object obj = config.get(StringUtils.fromString("fetchOwner"));
-                if (obj instanceof Boolean) {
-                    builder.fetchOwner((Boolean) obj);
-                }
-            }
+            applyStringConfig(config, "prefix", builder::prefix);
+            applyStringConfig(config, "delimiter", builder::delimiter);
+            applyIntConfig(config, "maxKeys", builder::maxKeys);
+            applyStringConfig(config, "continuationToken", builder::continuationToken);
+            applyStringConfig(config, "startAfter", builder::startAfter);
+            applyBooleanConfig(config, "fetchOwner", builder::fetchOwner);
 
             ListObjectsV2Response response = s3.listObjectsV2(builder.build());
-            BMap<BString, Object> result = ValueCreator.createMapValue();
+            MapType mapType = TypeCreator.createMapType(PredefinedTypes.TYPE_ANYDATA);
+            BMap<BString, Object> result = ValueCreator.createMapValue(mapType);
             List<S3Object> objects = response.contents();
             int size = objects.size();
 
@@ -445,7 +455,7 @@ public class NativeClientAdaptor {
             BMap<BString, Object>[] objArray = new BMap[size];
             for (int i = 0; i < size; i++) {
                 S3Object obj = objects.get(i);
-                BMap<BString, Object> objMap = ValueCreator.createMapValue();
+                BMap<BString, Object> objMap = ValueCreator.createMapValue(mapType);
 
                 objMap.put(StringUtils.fromString("key"), StringUtils.fromString(obj.key()));
                 objMap.put(StringUtils.fromString("size"), (long) obj.size());
@@ -483,19 +493,12 @@ public class NativeClientAdaptor {
                     .bucket(bucket.getValue())
                     .key(key.getValue());
 
-            if (config.containsKey(StringUtils.fromString("versionId"))) {
-                Object obj = config.get(StringUtils.fromString("versionId"));
-                if (obj instanceof BString)
-                    builder.versionId(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("partNumber"))) {
-                Object obj = config.get(StringUtils.fromString("partNumber"));
-                if (obj instanceof Long)
-                    builder.partNumber(((Long) obj).intValue());
-            }
+            applyStringConfig(config, "versionId", builder::versionId);
+            applyIntConfig(config, "partNumber", builder::partNumber);
 
             HeadObjectResponse response = s3.headObject(builder.build());
-            BMap<BString, Object> metadata = ValueCreator.createMapValue();
+            MapType mapType = TypeCreator.createMapType(PredefinedTypes.TYPE_ANYDATA);
+            BMap<BString, Object> metadata = ValueCreator.createMapValue(mapType);
 
             metadata.put(StringUtils.fromString("key"), key);
             metadata.put(StringUtils.fromString("contentLength"), response.contentLength());
@@ -512,7 +515,7 @@ public class NativeClientAdaptor {
             }
 
             if (response.metadata() != null && !response.metadata().isEmpty()) {
-                BMap<BString, Object> userMeta = ValueCreator.createMapValue();
+                BMap<BString, Object> userMeta = ValueCreator.createMapValue(mapType);
                 response.metadata()
                         .forEach((k, v) -> userMeta.put(StringUtils.fromString(k), StringUtils.fromString(v)));
                 metadata.put(StringUtils.fromString("userMetadata"), userMeta);
@@ -524,7 +527,6 @@ public class NativeClientAdaptor {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public static Object copyObject(BObject clientObj, BString sourceBucket, BString sourceKey, BString destBucket,
             BString destKey, BMap<BString, Object> config) {
         S3Client s3 = getClient(clientObj);
@@ -535,40 +537,11 @@ public class NativeClientAdaptor {
                     .destinationBucket(destBucket.getValue())
                     .destinationKey(destKey.getValue());
 
-            if (config.containsKey(StringUtils.fromString("acl"))) {
-                Object obj = config.get(StringUtils.fromString("acl"));
-                if (obj instanceof BString)
-                    builder.acl(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("storageClass"))) {
-                Object obj = config.get(StringUtils.fromString("storageClass"));
-                if (obj instanceof BString)
-                    builder.storageClass(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("metadataDirective"))) {
-                Object obj = config.get(StringUtils.fromString("metadataDirective"));
-                if (obj instanceof BString)
-                    builder.metadataDirective(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("contentType"))) {
-                Object obj = config.get(StringUtils.fromString("contentType"));
-                if (obj instanceof BString)
-                    builder.contentType(((BString) obj).getValue());
-            }
-            if (config.containsKey(StringUtils.fromString("metadata"))) {
-                Object metaObj = config.get(StringUtils.fromString("metadata"));
-                if (metaObj instanceof BMap) {
-                    BMap<BString, Object> metaMap = (BMap<BString, Object>) metaObj;
-                    Map<String, String> metadata = new HashMap<>();
-                    metaMap.entrySet().forEach(entry -> {
-                        Object value = entry.getValue();
-                        if (value instanceof BString) {
-                            metadata.put(entry.getKey().getValue(), ((BString) value).getValue());
-                        }
-                    });
-                    builder.metadata(metadata);
-                }
-            }
+            applyStringConfig(config, "acl", builder::acl);
+            applyStringConfig(config, "storageClass", builder::storageClass);
+            applyStringConfig(config, "metadataDirective", builder::metadataDirective);
+            applyStringConfig(config, "contentType", builder::contentType);
+            applyMetadataConfig(config, "metadata", builder::metadata);
 
             s3.copyObject(builder.build());
             return null;
@@ -612,48 +585,14 @@ public class NativeClientAdaptor {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static void applyMultipartConfig(CreateMultipartUploadRequest.Builder builder,
             BMap<BString, Object> config) {
-        if (config.containsKey(StringUtils.fromString("contentType"))) {
-            Object obj = config.get(StringUtils.fromString("contentType"));
-            if (obj instanceof BString)
-                builder.contentType(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("acl"))) {
-            Object obj = config.get(StringUtils.fromString("acl"));
-            if (obj instanceof BString)
-                builder.acl(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("storageClass"))) {
-            Object obj = config.get(StringUtils.fromString("storageClass"));
-            if (obj instanceof BString)
-                builder.storageClass(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("tagging"))) {
-            Object obj = config.get(StringUtils.fromString("tagging"));
-            if (obj instanceof BString)
-                builder.tagging(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("serverSideEncryption"))) {
-            Object obj = config.get(StringUtils.fromString("serverSideEncryption"));
-            if (obj instanceof BString)
-                builder.serverSideEncryption(((BString) obj).getValue());
-        }
-        if (config.containsKey(StringUtils.fromString("metadata"))) {
-            Object metaObj = config.get(StringUtils.fromString("metadata"));
-            if (metaObj instanceof BMap) {
-                BMap<BString, Object> metaMap = (BMap<BString, Object>) metaObj;
-                Map<String, String> metadata = new HashMap<>();
-                metaMap.entrySet().forEach(entry -> {
-                    Object value = entry.getValue();
-                    if (value instanceof BString) {
-                        metadata.put(entry.getKey().getValue(), ((BString) value).getValue());
-                    }
-                });
-                builder.metadata(metadata);
-            }
-        }
+        applyStringConfig(config, "contentType", builder::contentType);
+        applyStringConfig(config, "acl", builder::acl);
+        applyStringConfig(config, "storageClass", builder::storageClass);
+        applyStringConfig(config, "tagging", builder::tagging);
+        applyStringConfig(config, "serverSideEncryption", builder::serverSideEncryption);
+        applyMetadataConfig(config, "metadata", builder::metadata);
     }
 
     public static Object uploadPart(BObject clientObj, BString bucket, BString key, BString uploadId,
@@ -670,18 +609,8 @@ public class NativeClientAdaptor {
 
             // Apply optional config parameters
             if (config != null) {
-                if (config.containsKey(StringUtils.fromString("contentLength"))) {
-                    Object lengthObj = config.get(StringUtils.fromString("contentLength"));
-                    if (lengthObj instanceof Long) {
-                        builder.contentLength(((Long) lengthObj));
-                    }
-                }
-                if (config.containsKey(StringUtils.fromString("contentMD5"))) {
-                    Object md5Obj = config.get(StringUtils.fromString("contentMD5"));
-                    if (md5Obj instanceof BString) {
-                        builder.contentMD5(((BString) md5Obj).getValue());
-                    }
-                }
+                applyLongConfig(config, "contentLength", builder::contentLength);
+                applyStringConfig(config, "contentMD5", builder::contentMD5);
             }
 
             UploadPartRequest request = builder.build();
@@ -703,25 +632,21 @@ public class NativeClientAdaptor {
                     .uploadId(uploadId.getValue())
                     .partNumber((int) partNumber);
             
-            if (config.containsKey(StringUtils.fromString("contentLength"))) {
-                Object obj = config.get(StringUtils.fromString("contentLength"));
-                if (obj instanceof Long) {
-                    builder.contentLength((Long) obj);
-                }
-            }
+            applyStringConfig(config, "contentMD5", builder::contentMD5);
             
-            if (config.containsKey(StringUtils.fromString("contentMD5"))) {
-                Object obj = config.get(StringUtils.fromString("contentMD5"));
-                if (obj instanceof BString) {
-                    builder.contentMD5(((BString) obj).getValue());
-                }
-            }
-            
-            // Create an InputStream that reads from the Ballerina stream
             InputStream inputStream = new BallerinaStreamInputStream(env, contentStream);
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, bytesRead);
+            }
+            buffer.flush();
+            byte[] contentBytes = buffer.toByteArray();
+            inputStream.close();
             
             UploadPartResponse response = s3.uploadPart(builder.build(), 
-                    RequestBody.fromInputStream(inputStream, inputStream.available()));
+                    RequestBody.fromBytes(contentBytes));
             
             return StringUtils.fromString(response.eTag());
         } catch (Exception e) {
@@ -835,24 +760,9 @@ public class NativeClientAdaptor {
                 .bucket(bucket)
                 .key(key);
 
-        if (config.containsKey(StringUtils.fromString("versionId"))) {
-            Object versionObj = config.get(StringUtils.fromString("versionId"));
-            if (versionObj instanceof BString) {
-                getBuilder.versionId(((BString) versionObj).getValue());
-            }
-        }
-        if (config.containsKey(StringUtils.fromString("responseContentType"))) {
-            Object contentTypeObj = config.get(StringUtils.fromString("responseContentType"));
-            if (contentTypeObj instanceof BString) {
-                getBuilder.responseContentType(((BString) contentTypeObj).getValue());
-            }
-        }
-        if (config.containsKey(StringUtils.fromString("contentDisposition"))) {
-            Object dispositionObj = config.get(StringUtils.fromString("contentDisposition"));
-            if (dispositionObj instanceof BString) {
-                getBuilder.responseContentDisposition(((BString) dispositionObj).getValue());
-            }
-        }
+        applyStringConfig(config, "versionId", getBuilder::versionId);
+        applyStringConfig(config, "responseContentType", getBuilder::responseContentType);
+        applyStringConfig(config, "contentDisposition", getBuilder::responseContentDisposition);
 
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofMinutes(expirationMinutes))
@@ -870,18 +780,8 @@ public class NativeClientAdaptor {
                 .bucket(bucket)
                 .key(key);
 
-        if (config.containsKey(StringUtils.fromString("contentType"))) {
-            Object contentTypeObj = config.get(StringUtils.fromString("contentType"));
-            if (contentTypeObj instanceof BString) {
-                putBuilder.contentType(((BString) contentTypeObj).getValue());
-            }
-        }
-        if (config.containsKey(StringUtils.fromString("contentDisposition"))) {
-            Object dispositionObj = config.get(StringUtils.fromString("contentDisposition"));
-            if (dispositionObj instanceof BString) {
-                putBuilder.contentDisposition(((BString) dispositionObj).getValue());
-            }
-        }
+        applyStringConfig(config, "contentType", putBuilder::contentType);
+        applyStringConfig(config, "contentDisposition", putBuilder::contentDisposition);
 
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofMinutes(expirationMinutes))
@@ -905,6 +805,7 @@ public class NativeClientAdaptor {
             int read = input.read(buffer);
             if (read == -1) {
                 input.close();
+                streamWrapper.addNativeData("NATIVE_STREAM", null);
                 return null;
             }
             if (read < 4096) {
@@ -918,150 +819,21 @@ public class NativeClientAdaptor {
         }
     }
 
-    // Inner Class
-    public static class ConnectionConfig {
-        public final Region region;
-        public final AwsCredentialsProvider credentialsProvider;
+    @SuppressWarnings("unchecked")
+    public static Object closeStream(BObject streamWrapper) {
+        ResponseInputStream<GetObjectResponse> input = (ResponseInputStream<GetObjectResponse>) streamWrapper
+                .getNativeData("NATIVE_STREAM");
+        if (input == null) {
+            return null; // Already closed
+        }
 
-        public ConnectionConfig(Region region, AwsCredentialsProvider credentialsProvider) {
-            this.region = region;
-            this.credentialsProvider = credentialsProvider;
+        try {
+            input.close();
+            streamWrapper.addNativeData("NATIVE_STREAM", null);
+            return null;
+        } catch (IOException e) {
+            return S3ExceptionUtils.createError(e);
         }
     }
-
-    // Helper class to convert Ballerina stream to Java InputStream
-    private static class BallerinaStreamInputStream extends InputStream {
-        private static final String BAL_STREAM_CLOSE = "close";
-        private static final String STREAM_VALUE = "value";
-        private static final String BAL_STREAM_NEXT = "next";
-        
-        private final Environment environment;
-        private final BStream ballerinaStream;
-        private byte[] currentChunk;
-        private int chunkPosition;
-        private boolean endOfStream;
-        private final boolean hasCloseMethod;
-
-        public BallerinaStreamInputStream(Environment environment, BStream ballerinaStream) {
-            this.ballerinaStream = ballerinaStream;
-            this.environment = environment;
-            this.currentChunk = null;
-            this.chunkPosition = 0;
-            this.endOfStream = false;
-            
-            // Check if stream has a close method
-            Type iteratorType = ballerinaStream.getIteratorObj().getOriginalType();
-            if (iteratorType instanceof ObjectType) {
-                ObjectType iteratorObjectType = (ObjectType) iteratorType;
-                MethodType[] methods = iteratorObjectType.getMethods();
-                hasCloseMethod = java.util.Arrays.stream(methods)
-                        .anyMatch(method -> method.getName().equals(BAL_STREAM_CLOSE));
-            } else {
-                hasCloseMethod = false;
-            }
-        }
-
-        @Override
-        public int read() throws IOException {
-            if (endOfStream) {
-                return -1;
-            }
-
-            // If no current chunk or exhausted, fetch next
-            if (currentChunk == null || chunkPosition >= currentChunk.length) {
-                if (!fetchNextChunk()) {
-                    endOfStream = true;
-                    return -1;
-                }
-            }
-
-            return currentChunk[chunkPosition++] & 0xFF;
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            if (endOfStream) {
-                return -1;
-            }
-            if (b == null) {
-                throw new NullPointerException();
-            } else if (off < 0 || len < 0 || len > b.length - off) {
-                throw new IndexOutOfBoundsException();
-            } else if (len == 0) {
-                return 0;
-            }
-
-            int totalRead = 0;
-            while (totalRead < len) {
-                // Fetch next chunk if needed
-                if (currentChunk == null || chunkPosition >= currentChunk.length) {
-                    if (!fetchNextChunk()) {
-                        endOfStream = true;
-                        return totalRead == 0 ? -1 : totalRead;
-                    }
-                }
-
-                // Copy from current chunk
-                int available = currentChunk.length - chunkPosition;
-                int toRead = Math.min(available, len - totalRead);
-                System.arraycopy(currentChunk, chunkPosition, b, off + totalRead, toRead);
-                chunkPosition += toRead;
-                totalRead += toRead;
-            }
-
-            return totalRead;
-        }
-
-        private boolean fetchNextChunk() throws IOException {
-            try {
-                // Call next() method on the stream using Ballerina runtime
-                Object result = environment.getRuntime().callMethod(
-                        ballerinaStream.getIteratorObj(), BAL_STREAM_NEXT, null);
-                
-                if (result instanceof BError) {
-                    throw new IOException("Error reading from stream: " + ((BError) result).getMessage());
-                }
-                
-                if (result == null) {
-                    return false;
-                }
-                
-                if (result instanceof BMap) {
-                    BMap<?, ?> record = (BMap<?, ?>) result;
-                    Object value = record.get(StringUtils.fromString(STREAM_VALUE));
-                    
-                    if (value instanceof BArray) {
-                        currentChunk = ((BArray) value).getBytes();
-                        chunkPosition = 0;
-                        return currentChunk.length > 0;
-                    } else {
-                        throw new IOException("Unexpected value type in stream");
-                    }
-                } else {
-                    throw new IOException("Unexpected result type from stream.next()");
-                }
-            } catch (Exception e) {
-                throw new IOException("Error reading from Ballerina stream: " + e.getMessage(), e);
-            }
-        }
-
-        @Override
-        public void close() throws IOException {
-            if (!hasCloseMethod) {
-                return;
-            }
-            
-            Object result = environment.getRuntime().callMethod(
-                    ballerinaStream.getIteratorObj(), BAL_STREAM_CLOSE, null);
-            
-            if (result instanceof BError) {
-                throw new IOException(((BError) result).getMessage());
-            }
-            
-            endOfStream = true;
-            currentChunk = null;
-        }
-    }
-
-
 }
+

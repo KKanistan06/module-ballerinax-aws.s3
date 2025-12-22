@@ -1,7 +1,22 @@
+// Copyright (c) 2025 WSO2 LLC. (http://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 import ballerina/io;
 
 # Static credential configuration
-# 
 public type StaticAuthConfig record {|
     # The AWS Access Key ID
     string accessKeyId;
@@ -12,7 +27,6 @@ public type StaticAuthConfig record {|
 |};
 
 # Profile-based credential configuration 
-# 
 public type ProfileAuthConfig record {|
     # AWS shared config/credentials profile name
     string profileName;
@@ -22,7 +36,6 @@ public type ProfileAuthConfig record {|
 public type AuthConfig StaticAuthConfig|ProfileAuthConfig;
 
 # Configuration for the AWS S3 Client.
-#
 public type ConnectionConfig record {|
     # Authentication configuration
     AuthConfig auth;
@@ -32,7 +45,6 @@ public type ConnectionConfig record {|
 
 
 # Configuration for creating a bucket.
-#
 public type CreateBucketConfig record {|
     # Who can access the bucket (e.g., "private", "public-read")
     CannedACL acl = PRIVATE;
@@ -43,7 +55,6 @@ public type CreateBucketConfig record {|
 |};
 
 # Defines bucket.
-#
 public type Bucket record {
     # The name of the bucket
     string name;
@@ -54,11 +65,9 @@ public type Bucket record {
 };
 
 # Content types allowed for S3 objects.
-# 
 public type ObjectContent string|xml|json|byte[]|stream<io:Block, io:Error?>;
 
 # Configuration for uploading an object.
-#
 public type PutObjectConfig record {|
     # The file type (e.g., "image/jpeg", "application/pdf", "text/plain")
     string contentType?;
@@ -85,7 +94,6 @@ public type PutObjectConfig record {|
 |};
 
 # Configuration for retrieving an object.
-#
 public type GetObjectConfig record {|
     # Get a specific version of the object (when versioning is enabled)
     string versionId?;
@@ -108,7 +116,6 @@ public type GetObjectConfig record {|
 |};
 
 # Configuration for deleting an object.
-#
 public type DeleteObjectConfig record {|
     # Delete a specific version of the object (when versioning is enabled)
     string versionId?;
@@ -119,7 +126,6 @@ public type DeleteObjectConfig record {|
 |};
 
 # Configuration for listing objects.
-#
 public type ListObjectsConfig record {|
     # Filter objects that start with this value (e.g., "photos/" for all objects in photos folder)
     string prefix?;
@@ -138,7 +144,6 @@ public type ListObjectsConfig record {|
 |};
 
 # Configuration for copying an object.
-#
 public type CopyObjectConfig record {|
     # Who can access the copied object (e.g., "private", "public-read")
     CannedACL acl = PRIVATE;
@@ -169,7 +174,6 @@ public type CopyObjectConfig record {|
 |};
 
 # Configuration for getting object metadata.
-#
 public type HeadObjectConfig record {|
     # Get metadata for a specific version of the object (when versioning is enabled)
     string versionId?;
@@ -186,7 +190,6 @@ public type HeadObjectConfig record {|
 |};
 
 # Configuration for creating presigned URLs.
-#
 public type PresignedUrlConfig record {|
     # How long the URL is valid in minutes (default: 15, max: 10080 for 7 days)
     int expirationMinutes = 15;
@@ -203,7 +206,6 @@ public type PresignedUrlConfig record {|
 |};
 
 # Configuration for multipart upload (for large files uploaded in parts).
-#
 public type MultipartUploadConfig record {|
     # File type (e.g., "image/jpeg", "application/pdf")
     string contentType?;
@@ -226,7 +228,6 @@ public type MultipartUploadConfig record {|
 |};
 
 # Configuration for uploading a single part in a multipart upload.
-#
 public type UploadPartConfig record {|
     # Size of the part in bytes
     int contentLength?;
@@ -235,7 +236,6 @@ public type UploadPartConfig record {|
 |};
 
 # Represents a single S3 object in a listing.
-#
 public type S3Object record {|
     # The object's path/name in the bucket (e.g., "photos/image.jpg")
     string key;
@@ -250,7 +250,6 @@ public type S3Object record {|
 |};
 
 # Response from listing objects in a bucket.
-#
 public type ListObjectsResponse record {|
     # List of objects found
     S3Object[] objects;
@@ -263,7 +262,6 @@ public type ListObjectsResponse record {|
 |};
 
 # Metadata information about an S3 object.
-#
 public type ObjectMetadata record {|
     # The object's path/name in the bucket (e.g., "photos/image.jpg")
     string key;
@@ -284,7 +282,6 @@ public type ObjectMetadata record {|
 |};
 
 # Basic information about an S3 object.
-#
 public type ObjectInfo record {|
     # The object's path/name in the bucket (e.g., "photos/image.jpg")
     string key;
