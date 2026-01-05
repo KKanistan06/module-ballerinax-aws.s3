@@ -17,14 +17,41 @@
  */
 
 plugins {
-    id 'java'
+    id 'net.researchgate.release'
 }
 
 allprojects {
+    group = project.group
+    version = project.version
+
+    apply plugin: 'maven-publish'
+
     repositories {
+        mavenLocal()
         mavenCentral()
+        maven {
+            url = 'https://maven.wso2.org/nexus/content/repositories/releases/'
+        }
+
+        maven {
+            url = 'https://maven.wso2.org/nexus/content/groups/wso2-public/'
+        }
+
+        maven {
+            url = 'https://repo.maven.apache.org/maven2'
+        }
+
+        maven {
+            url = 'https://maven.pkg.github.com/ballerina-platform/*'
+            credentials {
+                username System.getenv("packageUser")
+                password System.getenv("packagePAT")
+            }
+        }
     }
 }
+
+def moduleVersion = project.version.replace("-SNAPSHOT", "")
 
 task buildNative {
     dependsOn ':native:shadowJar'
@@ -37,7 +64,7 @@ task buildBallerina(type: Exec) {
 }
 
 task testBallerina(type: Exec) {
-    dependsOn buildBallerina
+    dependsOn buildNative
     workingDir 'ballerina'
     commandLine 'bal', 'test'
 }
@@ -51,6 +78,17 @@ task cleanAll {
 clean {
     delete 'ballerina/target'
     delete 'ballerina/lib'
+}
+
+release {
+    buildTasks = ['buildBallerina']
+    failOnSnapshotDependencies = true
+    versionPropertyFile = 'gradle.properties'
+    tagTemplate = 'v${version}'
+    git {
+        requireBranch.set("release-${moduleVersion}")
+        pushToRemote.set('origin')
+    }
 }
 
 defaultTasks 'buildBallerina'

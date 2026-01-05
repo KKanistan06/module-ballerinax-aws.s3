@@ -14,8 +14,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import ballerina/io;
-
 # Static credential configuration
 public type StaticAuthConfig record {|
     # The AWS Access Key ID
@@ -29,9 +27,9 @@ public type StaticAuthConfig record {|
 # Profile-based credential configuration 
 public type ProfileAuthConfig record {|
     # AWS shared config/credentials profile name
-    string profileName;
+    string profileName = "default";
     # Path to the credentials file (default: ~/.aws/credentials)
-    string credentialsFilePath?;
+    string credentialsFilePath = "~/.aws/credentials";
 |};
 
 # Authentication configuration
@@ -67,7 +65,7 @@ public type Bucket record {
 };
 
 # Content types allowed for S3 objects.
-public type ObjectContent string|xml|json|byte[]|stream<io:Block, io:Error?>;
+public type ObjectContent string|xml|json|byte[];
 
 # Configuration for uploading an object.
 public type PutObjectConfig record {|
@@ -179,7 +177,7 @@ public type CopyObjectConfig record {|
 public type HeadObjectConfig record {|
     # Get metadata for a specific version of the object (when versioning is enabled)
     string versionId?;
-    # For multipart uploads, which part number to get metadata for (starts at 1)
+    # For multipart uploads, which part number to get metadata for (starts at 1) 
     int partNumber?;
     # Only get metadata if the file's ETag matches this value
     string ifMatch?;
@@ -271,9 +269,9 @@ public type ObjectMetadata record {|
     int contentLength;
     # File type (e.g., "image/jpeg", "application/pdf")
     string contentType?;
-    # Unique ID of the object's content
+    # Unique ID of the object's content 
     string eTag;
-    # When the object was last changed
+    # When the object was last changed 
     string lastModified;
     # Storage type (e.g., "STANDARD", "GLACIER")
     StorageClass storageClass = STANDARD;

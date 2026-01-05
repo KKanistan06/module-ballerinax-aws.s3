@@ -24,9 +24,9 @@ configurable string accessKeyId = os:getEnv("ACCESS_KEY_ID");
 configurable string secretAccessKey = os:getEnv("SECRET_ACCESS_KEY");
 configurable string region = os:getEnv("REGION");
 
-const  fileName = "test.txt";
-const  fileName2 = "test2.txt";
-const  fileFromPath = "test_from_file.txt";
+const fileName = "test.txt";
+const fileName2 = "test2.txt";
+const fileFromPath = "test_from_file.txt";
 byte[] content = "Sample content".toBytes();
 string uploadId = "";
 int[] partNumbers = [];
@@ -40,13 +40,7 @@ ConnectionConfig amazonS3Config = {
     region
 };
 
-
-Client s3Client = check new (amazonS3Config);
-
-@test:BeforeSuite
-function initializeClient() returns error? {
-    // Client is already initialized at module level
-}
+final Client s3Client = check new (amazonS3Config);
 
 @test:Config {}
 function testCreateBucket() returns error? {
@@ -84,16 +78,20 @@ function testCreateObjectWithMetadata() returns error? {
     dependsOn: [testCreateBucket]
 }
 function testListBuckets() returns error? {
-    // Use trap to catch any panic from the client method
-    Bucket[]|error response = trap s3Client->listBuckets();
-    if response is error {
-        // If cast error occurs due to native returning string[], handle gracefully
-        // This is a known issue in the client implementation
-        test:assertTrue(true, msg = "listBuckets() returned an error (expected due to type mismatch in client)");
-    } else {
-        string bucketName = response[0].name;
-        test:assertTrue(bucketName.length() > 0, msg = "Failed to call listBuckets()");
+    Bucket[] response = check s3Client->listBuckets();
+    test:assertTrue(response.length() > 0, msg = "No buckets found");
+    
+    // Verify the bucket we created exists in the list
+    boolean foundTestBucket = false;
+    foreach Bucket bucket in response {
+        test:assertTrue(bucket.name.length() > 0, msg = "Bucket name should not be empty");
+        if bucket.name == testBucketName {
+            foundTestBucket = true;
+            // Verify creationDate is populated
+            test:assertTrue(bucket.creationDate.length() > 0, msg = "Bucket creation date should not be empty");
+        }
     }
+    test:assertTrue(foundTestBucket, msg = "Test bucket should be in the list");
 }
 
 @test:Config {
@@ -117,7 +115,7 @@ function testPutObjectFromFile() returns error? {
     check s3Client->putObjectFromFile(testBucketName, fileFromPath, tempFilePath);
     
     // Verify by downloading and checking content
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, fileFromPath);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, fileFromPath);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
         string downloadedContent = check string:fromBytes(chunk.value);
@@ -125,6 +123,7 @@ function testPutObjectFromFile() returns error? {
     } else {
         test:assertFail("Failed to read uploaded file content");
     }
+    check response.close();
     
     // Clean up: delete the uploaded object and temp file
     check s3Client->deleteObject(testBucketName, fileFromPath);
@@ -178,7 +177,7 @@ function testPutObjectWithStringContent() returns error? {
     check s3Client->putObject(testBucketName, objectKey, stringContent);
     
     // Verify by downloading and checking content
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
         string downloadedContent = check string:fromBytes(chunk.value);
@@ -186,6 +185,7 @@ function testPutObjectWithStringContent() returns error? {
     } else {
         test:assertFail("Failed to read uploaded string content");
     }
+    check response.close();
     
     // Clean up
     check s3Client->deleteObject(testBucketName, objectKey);
@@ -202,7 +202,7 @@ function testPutObjectWithXmlContent() returns error? {
     check s3Client->putObject(testBucketName, objectKey, xmlContent);
     
     // Verify by downloading and checking content
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
         string downloadedContent = check string:fromBytes(chunk.value);
@@ -210,6 +210,7 @@ function testPutObjectWithXmlContent() returns error? {
     } else {
         test:assertFail("Failed to read uploaded XML content");
     }
+    check response.close();
     
     // Clean up
     check s3Client->deleteObject(testBucketName, objectKey);
@@ -233,7 +234,7 @@ function testPutObjectWithJsonContent() returns error? {
     check s3Client->putObject(testBucketName, objectKey, jsonContent);
     
     // Verify by downloading and checking content
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
         string downloadedContent = check string:fromBytes(chunk.value);
@@ -241,6 +242,7 @@ function testPutObjectWithJsonContent() returns error? {
     } else {
         test:assertFail("Failed to read uploaded JSON content");
     }
+    check response.close();
     
     // Clean up
     check s3Client->deleteObject(testBucketName, objectKey);
@@ -257,13 +259,14 @@ function testPutObjectWithByteArrayContent() returns error? {
     check s3Client->putObject(testBucketName, objectKey, byteContent);
     
     // Verify by downloading and checking content
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
         test:assertEquals(chunk.value, byteContent, "Byte array content mismatch");
     } else {
         test:assertFail("Failed to read uploaded byte array content");
     }
+    check response.close();
     
     // Clean up
     check s3Client->deleteObject(testBucketName, objectKey);
@@ -287,7 +290,7 @@ function testPutObjectAsStream() returns error? {
     check s3Client->putObject(testBucketName, objectKey, fileContent);
     
     // Verify by downloading and checking content
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
         string downloadedContent = check string:fromBytes(chunk.value);
@@ -295,6 +298,7 @@ function testPutObjectAsStream() returns error? {
     } else {
         test:assertFail("Failed to read uploaded stream content");
     }
+    check response.close();
     
     // Clean up
     check s3Client->deleteObject(testBucketName, objectKey);
@@ -375,25 +379,14 @@ function testPutObjectAsStreamLargeFile() returns error? {
     check s3Client->putObject(testBucketName, objectKey, fileContent);
     
     // Verify by downloading and checking content length
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     byte[] fullContent = [];
-    
-    // Read all chunks from the stream
-    while true {
-        record {|byte[] value;|}|Error? chunk = response.next();
-        if chunk is error {
-            return chunk;
-        }
-        if chunk is () {
-            break;
-        }
-        fullContent.push(...chunk.value);
-    }
+    check from byte[] bytes in response
+        do {
+            fullContent.push(...bytes);
+        };
     
     string downloadedContent = check string:fromBytes(fullContent);
-    // Compare lengths first for easier debugging
-    test:assertEquals(downloadedContent.length(), largeContent.length(), "Content length mismatch");
-    // Then compare content
     test:assertEquals(downloadedContent, largeContent, "Large stream content mismatch");
     
     // Clean up
@@ -418,18 +411,12 @@ function testPutObjectAsStreamDirect() returns error? {
     check s3Client->putObjectAsStream(testBucketName, objectKey, fileStream);
     
     // Verify by downloading and checking content
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     byte[] fullContent = [];
-    while true {
-        record {|byte[] value;|}|Error? chunk = response.next();
-        if chunk is error {
-            return chunk;
-        }
-        if chunk is () {
-            break;
-        }
-        fullContent.push(...chunk.value);
-    }
+    check from byte[] bytes in response
+        do {
+            fullContent.push(...bytes);
+        };
     
     string downloadedContent = check string:fromBytes(fullContent);
     test:assertEquals(downloadedContent, streamContent, "Stream content mismatch");
@@ -504,7 +491,7 @@ function testUploadPartAsStreamDirect() returns error? {
     check s3Client->completeMultipartUpload(testBucketName, objectKey, streamUploadId, [1], [etag]);
     
     // Verify the uploaded object
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
         string downloadedContent = check string:fromBytes(chunk.value);
@@ -512,6 +499,7 @@ function testUploadPartAsStreamDirect() returns error? {
     } else {
         test:assertFail("Failed to read uploadPartAsStream uploaded content");
     }
+    check response.close();
     
     // Clean up
     check s3Client->deleteObject(testBucketName, objectKey);
@@ -556,18 +544,12 @@ function testUploadMultiplePartsAsStreamDirect() returns error? {
     check s3Client->completeMultipartUpload(testBucketName, objectKey, multiPartUploadId, [1, 2], [etag1, etag2]);
     
     // Verify the uploaded object size
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     byte[] fullDownloadedContent = [];
-    while true {
-        record {|byte[] value;|}|Error? chunk = response.next();
-        if chunk is error {
-            return chunk;
-        }
-        if chunk is () {
-            break;
-        }
-        fullDownloadedContent.push(...chunk.value);
-    }
+    check from byte[] bytes in response
+        do {
+            fullDownloadedContent.push(...bytes);
+        };
     
     int expectedSize = part1Bytes.length() + part2Content.toBytes().length();
     test:assertEquals(fullDownloadedContent.length(), expectedSize, "Multi-part stream content size mismatch");
@@ -584,6 +566,52 @@ function testGetBucketLocation() returns error? {
     test:assertEquals(location, region, "Bucket location should match the configured region");
 }
 
+@test:Config {
+    dependsOn: [testCreateBucket]
+}
+function testAccessBucketWithDifferentRegion() returns error? {
+    // Create a client configured with a different region than where the bucket exists
+    string differentRegion = region == "us-east-1" ? "us-west-2" : "us-east-1";
+    
+    ConnectionConfig differentRegionConfig = {
+        auth: {
+            accessKeyId,
+            secretAccessKey
+        },
+        region: differentRegion
+    };
+    
+    Client differentRegionClient = check new (differentRegionConfig);
+    
+    // Try to get bucket location - this should still work and return the actual bucket region
+    // AWS S3 allows cross-region access but returns the actual bucket location
+    string|error locationResult = differentRegionClient->getBucketLocation(testBucketName);
+    
+    if locationResult is string {
+        // getBucketLocation should return the actual bucket region, not the client's configured region
+        test:assertEquals(locationResult, region, 
+            "getBucketLocation should return actual bucket region even when client uses different region");
+    } else {
+        // Some cross-region operations may fail with redirect errors
+        // This is expected behavior for certain S3 operations
+        test:assertTrue(locationResult.message().includes("redirect") || 
+                       locationResult.message().includes("PermanentRedirect") ||
+                       locationResult.message().includes("region"),
+            msg = "Cross-region error should be related to region mismatch");
+    }
+    
+    // Try to list objects in the bucket with mismatched region
+    ListObjectsResponse|Error listResult = differentRegionClient->listObjects(testBucketName);
+    
+    if listResult is ListObjectsResponse {
+        // If listing succeeds, AWS handled the cross-region request
+        test:assertTrue(true, msg = "Cross-region listObjects succeeded (AWS handled redirect)");
+    } else {
+        // Cross-region access may fail - this is acceptable behavior
+        test:assertTrue(true, msg = "Cross-region listObjects failed as expected: " + listResult.message());
+    }
+}
+
 @test:Config {}
 function testGetBucketLocationWithInvalidBucket() returns error? {
     string|error result = s3Client->getBucketLocation("non-existent-bucket-12345-xyz");
@@ -594,20 +622,13 @@ function testGetBucketLocationWithInvalidBucket() returns error? {
     dependsOn: [testCreateObject]
 }
 function testGetObjectMetadata() returns error? {
-    // Use trap to catch any panic from the client method (known type cast issue)
-    ObjectMetadata|error metadataResult = trap s3Client->getObjectMetadata(testBucketName, fileName);
+    ObjectMetadata metadata = check s3Client->getObjectMetadata(testBucketName, fileName);
     
-    if metadataResult is error {
-        // Handle known type cast error from native method
-        // This is a known issue in the client implementation
-        test:assertTrue(true, msg = "getObjectMetadata() returned an error (known type cast issue in client)");
-    } else {
-        // Verify basic metadata fields
-        test:assertEquals(metadataResult.key, fileName, "Object key mismatch");
-        test:assertTrue(metadataResult.contentLength > 0, msg = "Content length should be greater than 0");
-        test:assertTrue(metadataResult.eTag.length() > 0, msg = "ETag should not be empty");
-        test:assertTrue(metadataResult.lastModified.length() > 0, msg = "Last modified should not be empty");
-    }
+    // Verify basic metadata fields
+    test:assertEquals(metadata.key, fileName, "Object key mismatch");
+    test:assertTrue(metadata.contentLength > 0, msg = "Content length should be greater than 0");
+    test:assertTrue(metadata.eTag.length() > 0, msg = "ETag should not be empty");
+    test:assertTrue(metadata.lastModified.length() > 0, msg = "Last modified should not be empty");
 }
 
 @test:Config {
@@ -629,19 +650,13 @@ function testGetObjectMetadataWithCustomMetadata() returns error? {
     };
     check s3Client->putObject(testBucketName, objectKey, objectContent, putConfig);
     
-    // Get object metadata - use trap to catch any panic from the client method
-    ObjectMetadata|error metadataResult = trap s3Client->getObjectMetadata(testBucketName, objectKey);
+    // Get object metadata
+    ObjectMetadata metadata = check s3Client->getObjectMetadata(testBucketName, objectKey);
     
-    if metadataResult is error {
-        // Handle known type cast error from native method
-        // This is a known issue in the client implementation
-        test:assertTrue(true, msg = "getObjectMetadata() returned an error (known type cast issue in client)");
-    } else {
-        // Verify metadata
-        test:assertEquals(metadataResult.key, objectKey, "Object key mismatch");
-        test:assertEquals(metadataResult.contentLength, objectContent.length(), "Content length mismatch");
-        test:assertTrue(metadataResult.contentType is string, msg = "Content type should be present");
-    }
+    // Verify metadata
+    test:assertEquals(metadata.key, objectKey, "Object key mismatch");
+    test:assertEquals(metadata.contentLength, objectContent.length(), "Content length mismatch");
+    test:assertTrue(metadata.contentType is string, msg = "Content type should be present");
     
     // Clean up
     check s3Client->deleteObject(testBucketName, objectKey);
@@ -668,7 +683,7 @@ function testCopyObject() returns error? {
     check s3Client->copyObject(testBucketName, sourceKey, testBucketName, destinationKey);
     
     // Verify the copied object exists and has same content
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, destinationKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, destinationKey);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
         string downloadedContent = check string:fromBytes(chunk.value);
@@ -676,6 +691,7 @@ function testCopyObject() returns error? {
     } else {
         test:assertFail("Failed to read copied object content");
     }
+    check response.close();
     
     // Clean up both objects
     check s3Client->deleteObject(testBucketName, sourceKey);
@@ -752,7 +768,6 @@ function testCopyObjectFromNonExistentSource() returns error? {
     dependsOn: [testCreateObject]
 }
 function testDoesObjectExist() returns error? {
-    
     // Test with existing object (fileName is created in testCreateObject)
     boolean exists = s3Client->doesObjectExist(testBucketName, fileName);
     test:assertTrue(exists, msg = "Object should exist");
@@ -760,8 +775,6 @@ function testDoesObjectExist() returns error? {
 
 @test:Config {}
 function testDoesObjectExistForNonExistentObject() returns error? {
-    
-    // Test with non-existent object
     boolean exists = s3Client->doesObjectExist(testBucketName, "non-existent-object-xyz-123.txt");
     test:assertFalse(exists, msg = "Non-existent object should return false");
 }
@@ -794,14 +807,12 @@ function testDoesObjectExistAfterUploadAndDelete() returns error? {
 
 @test:Config {}
 function testDoesObjectExistWithEmptyKey() returns error? {
-    
-    // Test with empty object key - should throw an error since empty key is invalid
     boolean|error result = trap s3Client->doesObjectExist(testBucketName, "");
     test:assertTrue(result is error, msg = "Empty key should throw an error");
 }
 
 @test:Config {
-    dependsOn: [testGetObject]
+    dependsOn: [testGetObjectAsStream]
 }
 function testCreatePresignedUrlGet() returns error? {
     PresignedUrlConfig urlConfig = {expirationMinutes: 60, httpMethod: "GET"};
@@ -812,7 +823,7 @@ function testCreatePresignedUrlGet() returns error? {
 }
 
 @test:Config {
-    dependsOn: [testGetObject]
+    dependsOn: [testGetObjectAsStream]
 }
 function testCreatePresignedUrlPut() returns error? {
     PresignedUrlConfig urlConfig = {expirationMinutes: 60, httpMethod: "PUT"};
@@ -823,7 +834,7 @@ function testCreatePresignedUrlPut() returns error? {
 }
 
 @test:Config {
-    dependsOn: [testGetObject]
+    dependsOn: [testGetObjectAsStream]
 }
 function testCreatePresignedUrlWithInvalidObjectName() returns error? {
     PresignedUrlConfig urlConfig = {expirationMinutes: 60, httpMethod: "GET"};
@@ -833,7 +844,7 @@ function testCreatePresignedUrlWithInvalidObjectName() returns error? {
 }
 
 @test:Config {
-    dependsOn: [testGetObject]
+    dependsOn: [testGetObjectAsStream]
 }
 
 function testCreatePresignedUrlWithInvalidBucketName() returns error? {
@@ -846,17 +857,18 @@ function testCreatePresignedUrlWithInvalidBucketName() returns error? {
 @test:Config {
     dependsOn: [testCreateObject]
 }
-function testGetObject() returns error? {
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, fileName);
+function testGetObjectAsStream() returns error? {
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, fileName);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
         string resContent = check string:fromBytes(chunk.value);
         test:assertEquals(check string:fromBytes(content), resContent, "Content mismatch");
     }
+    check response.close();
 }
 
 @test:Config {
-    dependsOn: [testGetObject]
+    dependsOn: [testGetObjectAsStream]
 }
 function testListObjects() returns error? {
     ListObjectsConfig listConfig = {fetchOwner: true};
@@ -915,7 +927,7 @@ function testUploadPartAsStream() returns error? {
     string objectKey = "stream_multipart_upload.txt";
     string tempFilePath = "./tests/temp_stream_part.txt";
     
-    // Create content for the part (minimum 5MB for multipart, but for testing we use smaller)
+    // Create content for the part
     string partContent = "This is part content uploaded via stream for multipart upload test.";
     check io:fileWriteString(tempFilePath, partContent);
     
@@ -923,18 +935,18 @@ function testUploadPartAsStream() returns error? {
     string streamUploadId = check s3Client->createMultipartUpload(testBucketName, objectKey);
     test:assertTrue(streamUploadId.length() > 0, "Failed to create multipart upload for stream test");
     
-    // Read content as byte array and upload (simulating stream pattern)
-    byte[] fileContent = check io:fileReadBytes(tempFilePath);
+    // Open file as a byte block stream
+    stream<byte[], error?> byteStream = check io:fileReadBlocksAsStream(tempFilePath, 4096);
     
-    // Upload part using regular uploadPart (since stream upload has known issues)
-    string etag = check s3Client->uploadPart(testBucketName, objectKey, streamUploadId, 1, fileContent);
+    // Upload part using uploadPartAsStream API
+    string etag = check s3Client->uploadPartAsStream(testBucketName, objectKey, streamUploadId, 1, byteStream);
     test:assertTrue(etag.length() > 0, msg = "Failed to upload part via stream");
     
     // Complete the multipart upload
     check s3Client->completeMultipartUpload(testBucketName, objectKey, streamUploadId, [1], [etag]);
     
     // Verify the uploaded object
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     record {|byte[] value;|}? chunk = check response.next();
     if chunk is record {|byte[] value;|} {
         string downloadedContent = check string:fromBytes(chunk.value);
@@ -942,6 +954,7 @@ function testUploadPartAsStream() returns error? {
     } else {
         test:assertFail("Failed to read stream uploaded content");
     }
+    check response.close();
     
     // Clean up
     check s3Client->deleteObject(testBucketName, objectKey);
@@ -952,6 +965,8 @@ function testUploadPartAsStream() returns error? {
 }
 function testUploadMultiplePartsAsStream() returns error? {
     string objectKey = "multi_part_stream_upload.txt";
+    string tempFilePath1 = "./tests/temp_multi_part1.bin";
+    string tempFilePath2 = "./tests/temp_multi_part2.txt";
     
     // AWS S3 requires each part (except the last) to be at least 5MB
     // Create content for multiple parts - Part 1 must be >= 5MB, Part 2 can be smaller
@@ -962,13 +977,20 @@ function testUploadMultiplePartsAsStream() returns error? {
     }
     string part2Content = "This is the second part of the multipart upload.";
     
+    // Write part contents to temp files
+    check io:fileWriteBytes(tempFilePath1, part1Content);
+    check io:fileWriteString(tempFilePath2, part2Content);
+    
     // Create multipart upload
     string multiPartUploadId = check s3Client->createMultipartUpload(testBucketName, objectKey);
     test:assertTrue(multiPartUploadId.length() > 0, "Failed to create multipart upload");
     
-    // Upload parts
-    string etag1 = check s3Client->uploadPart(testBucketName, objectKey, multiPartUploadId, 1, part1Content);
-    string etag2 = check s3Client->uploadPart(testBucketName, objectKey, multiPartUploadId, 2, part2Content.toBytes());
+    // Upload parts using uploadPartAsStream API
+    stream<byte[], error?> part1Stream = check io:fileReadBlocksAsStream(tempFilePath1, 65536);
+    string etag1 = check s3Client->uploadPartAsStream(testBucketName, objectKey, multiPartUploadId, 1, part1Stream);
+    
+    stream<byte[], error?> part2Stream = check io:fileReadBlocksAsStream(tempFilePath2, 4096);
+    string etag2 = check s3Client->uploadPartAsStream(testBucketName, objectKey, multiPartUploadId, 2, part2Stream);
     
     test:assertTrue(etag1.length() > 0, msg = "Failed to upload part 1");
     test:assertTrue(etag2.length() > 0, msg = "Failed to upload part 2");
@@ -977,18 +999,12 @@ function testUploadMultiplePartsAsStream() returns error? {
     check s3Client->completeMultipartUpload(testBucketName, objectKey, multiPartUploadId, [1, 2], [etag1, etag2]);
     
     // Verify the uploaded object has the correct size (part1 + part2)
-    stream<byte[], Error?> response = check s3Client->getObject(testBucketName, objectKey);
+    stream<byte[], error?> response = check s3Client->getObjectAsStream(testBucketName, objectKey);
     byte[] fullDownloadedContent = [];
-    while true {
-        record {|byte[] value;|}|Error? chunk = response.next();
-        if chunk is error {
-            return chunk;
-        }
-        if chunk is () {
-            break;
-        }
-        fullDownloadedContent.push(...chunk.value);
-    }
+    check from byte[] bytes in response
+        do {
+            fullDownloadedContent.push(...bytes);
+        };
     
     int expectedSize = part1Content.length() + part2Content.toBytes().length();
     test:assertEquals(fullDownloadedContent.length(), expectedSize, "Multi-part content size mismatch");

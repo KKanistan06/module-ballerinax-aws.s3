@@ -18,7 +18,7 @@
 #
 # + bucketName - The name of the bucket
 # + return - True if valid, False otherwise
-public isolated function isValidBucketName(string bucketName) returns boolean {
+isolated function isValidBucketName(string bucketName) returns boolean {
     // 1. Length check (3-63 chars)
     if bucketName.length() < 3 || bucketName.length() > 63 {
         return false;
@@ -35,7 +35,7 @@ public isolated function isValidBucketName(string bucketName) returns boolean {
 # 
 # + err - The error returned from the client
 # + return - A cleaned up string message
-public isolated function getErrorMessage(Error err) returns string {
+isolated function getErrorMessage(Error err) returns string {
     return err.message();
 }
 
@@ -43,15 +43,13 @@ public isolated function getErrorMessage(Error err) returns string {
 # 
 # + content - The ObjectContent to convert
 # + return - The byte array representation or an Error
-public isolated function toByteArray(ObjectContent content) returns byte[]|Error {
+isolated function toByteArray(ObjectContent content) returns byte[] {
     if content is byte[] {
         return content;
     } else if content is string {
         return content.toBytes();
     } else if content is xml {
         return content.toString().toBytes();
-    } else if content is json {
-        return content.toString().toBytes();
     }
-    return error Error("Unsupported content type");
+    return content.toString().toBytes();
 }

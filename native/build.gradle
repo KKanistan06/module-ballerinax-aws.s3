@@ -21,12 +21,12 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
-group = 'org.ballerinax.aws.s3'
-version = '0.1.0'
+group = 'io.ballerina.lib.aws.s3'
+version = '5.0.0'
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 repositories {
@@ -43,7 +43,7 @@ repositories {
     }
 }
 
-def BALLERINA_HOME = '/usr/lib/ballerina/distributions/ballerina-2201.13.1'
+def BALLERINA_HOME = '/usr/lib/ballerina/distributions/ballerina-2201.12.10'
 
 dependencies {
     implementation platform('software.amazon.awssdk:bom:2.29.29')
@@ -56,13 +56,18 @@ dependencies {
 shadowJar {
     archiveBaseName.set('aws-s3-native')
     archiveClassifier.set('')
-    archiveVersion.set('0.1.0')
+    archiveVersion.set('5.0.0')
     destinationDirectory.set(file("${project.rootDir}/ballerina/lib"))
     
     dependencies {
         include(dependency('software.amazon.awssdk:.*'))
         include(dependency('org.apache.httpcomponents:.*'))
         include(dependency('org.reactivestreams:.*'))
+    }
+    
+    // Ensure task runs if output JAR doesn't exist
+    outputs.upToDateWhen { 
+        file("${project.rootDir}/ballerina/lib/aws-s3-native-5.0.0.jar").exists() 
     }
 }
 

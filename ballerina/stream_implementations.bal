@@ -17,20 +17,17 @@
 import ballerina/jballerina.java;
 
 # The iterator class that fetches bytes from the native Java Input Stream.
-public isolated class S3StreamResult {
+isolated class S3StreamResult {
 
     # Fetches the next chunk of data from the S3 Response Stream.
     #
     # + return - A record containing the byte array, an Error, or nil if the stream ends
     public isolated function next() returns record {| byte[] value; |}|Error? {
-        byte[]|Error? result = nativeReadStreamBytes(self);
-
+        byte[]? result = check nativeReadStreamBytes(self);
         if result is byte[] {
-            return { value: result };
-        } else if result is Error {
-            return result;
+            return {value: result};
         }
-        return ();
+        return;
     }
 
     # Closes the underlying Java Stream to release network resources.
@@ -41,14 +38,12 @@ public isolated class S3StreamResult {
     }
 }
 
-// Links to the Java static method: NativeClientAdaptor.readStreamBytes(BObject)
 isolated function nativeReadStreamBytes(S3StreamResult streamObj) returns byte[]|Error? = @java:Method {
     name: "readStreamBytes",
-    'class: "org.ballerinax.aws.s3.NativeClientAdaptor"
+    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
 } external;
 
-// Links to the Java static method: NativeClientAdaptor.closeStream(BObject)
 isolated function nativeCloseStream(S3StreamResult streamObj) returns Error? = @java:Method {
     name: "closeStream",
-    'class: "org.ballerinax.aws.s3.NativeClientAdaptor"
+    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
 } external;
