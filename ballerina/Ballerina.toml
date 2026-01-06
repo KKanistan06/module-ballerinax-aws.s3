@@ -1,19 +1,19 @@
 [package]
+distribution = "2201.12.2"
 org = "ballerinax"
 name = "aws.s3"
 version = "5.0.0"
-distribution = "2201.12.10"
+license = ["Apache-2.0"]
 authors = ["Ballerina"]
 keywords = ["Content & Files/File Management & Storage", "Cost/Paid", "Vendor/Amazon"]
-repository = "https://github.com/ballerina-platform/module-ballerinax-aws.s3"
-license = ["Apache-2.0"]
 icon = "icon.png"
+repository = "https://github.com/ballerina-platform/module-ballerinax-aws.s3"
 
 [build-options]
 observabilityIncluded = true
 
 [[platform.java21.dependency]]
 path = "./lib/aws-s3-native-5.0.0.jar"
-groupId = "org.ballerinax.aws.s3"
+groupId = "io.ballerina.lib.aws.s3"
 artifactId = "aws-s3-native"
 version = "5.0.0"
