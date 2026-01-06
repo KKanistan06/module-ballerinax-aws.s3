@@ -5,7 +5,7 @@
 
 [ballerina]
 dependencies-toml-version = "2"
-distribution-version = "2201.12.10"
+distribution-version = "2201.12.2"
 
 [[package]]
 org = "ballerina"
@@ -278,6 +278,7 @@ dependencies = [
 org = "ballerina"
 name = "observe"
 version = "1.6.0"
+scope = "testOnly"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
@@ -351,18 +352,6 @@ dependencies = [
 ]
 
 [[package]]
-org = "ballerinai"
-name = "observe"
-version = "0.0.0"
-dependencies = [
-	{org = "ballerina", name = "jballerina.java"},
-	{org = "ballerina", name = "observe"}
-]
-modules = [
-	{org = "ballerinai", packageName = "observe", moduleName = "observe"}
-]
-
-[[package]]
 org = "ballerinax"
 name = "aws.s3"
 version = "5.0.0"
@@ -371,8 +360,7 @@ dependencies = [
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "os"},
-	{org = "ballerina", name = "test"},
-	{org = "ballerinai", name = "observe"}
+	{org = "ballerina", name = "test"}
 ]
 modules = [
 	{org = "ballerinax", packageName = "aws.s3", moduleName = "aws.s3"}

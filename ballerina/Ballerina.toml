@@ -108,8 +108,8 @@ path = "./lib/identity-spi-2.25.16.jar"
 [[platform.java21.dependency]]
 groupId = "org.apache.httpcomponents"
 artifactId = "httpcore"
-version = "@http.core.version@"
-path = "./lib/httpcore-@http.core.version@.jar"
+version = "4.4.13"
+path = "./lib/httpcore-4.4.13.jar"
 
 [[platform.java21.dependency]]
 groupId = "org.apache.httpcomponents"
