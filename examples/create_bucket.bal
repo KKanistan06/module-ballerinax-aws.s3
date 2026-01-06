@@ -7,16 +7,17 @@ configurable string region = ?;
 configurable string bucketName = ?;
 
 s3:ConnectionConfig amazonS3Config = {
-    accessKeyId: accessKeyId,
-    secretAccessKey: secretAccessKey,
+    auth: {
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey
+    },
     region: region
 };
 
-s3:Client amazonS3Client = check new (amazonS3Config);
+final s3:Client amazonS3Client = check new (amazonS3Config);
 
 public function main() {
-    s3:CannedACL cannedACL = s3:ACL_PRIVATE;
-    error? createBucketResponse = amazonS3Client->createBucket(bucketName, cannedACL);
+    error? createBucketResponse = amazonS3Client->createBucket(bucketName, acl = s3:PRIVATE);
     if createBucketResponse is error {
         log:printError("Error: " + createBucketResponse.toString());
     } else {

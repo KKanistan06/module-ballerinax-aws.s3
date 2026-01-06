@@ -7,8 +7,10 @@ configurable string region = ?;
 configurable string bucketName = ?;
 
 s3:ConnectionConfig amazonS3Config = {
-    accessKeyId: accessKeyId,
-    secretAccessKey: secretAccessKey,
+    auth: {
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey
+    },
     region: region
 };
 
