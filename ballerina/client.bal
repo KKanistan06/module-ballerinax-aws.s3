@@ -35,7 +35,7 @@ public isolated client class Client {
     # + return - An Error if bucket creation fails
     @display {label: "Create Bucket"}
     remote isolated function createBucket(@display {label: "Bucket Name"} string bucketName,
-            @display {label: "Bucket Configuration"} CreateBucketConfig config = {}) returns Error? {
+            *CreateBucketConfig config) returns Error? {
         check nativeCreateBucket(self, bucketName, config);
     }
 
@@ -82,7 +82,7 @@ public isolated client class Client {
     remote isolated function putObjectFromFile(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
             @display {label: "File Path"} string filePath,
-            @display {label: "Upload Configuration"} PutObjectConfig config = {}) returns Error? {
+            *PutObjectConfig config) returns Error? {
         check nativePutObjectFromFile(self, bucketName, objectKey, filePath, config);
     }
 
@@ -97,7 +97,7 @@ public isolated client class Client {
     remote isolated function putObject(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
             @display {label: "Content"} ObjectContent content,
-            @display {label: "Upload Configuration"} PutObjectConfig config = {}) returns Error? {
+            *PutObjectConfig config) returns Error? {
         byte[] converted = toByteArray(content);
         check nativePutObjectWithContent(self, bucketName, objectKey, converted, config);
     }
@@ -113,7 +113,7 @@ public isolated client class Client {
     remote isolated function putObjectAsStream(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
             @display {label: "Content Stream"} stream<byte[], error?> contentStream,
-            @display {label: "Upload Configuration"} PutObjectConfig config = {}) returns Error? {
+            *PutObjectConfig config) returns Error? {
         check nativePutObjectWithStream(self, bucketName, objectKey, contentStream, config);
     }
 
@@ -126,7 +126,7 @@ public isolated client class Client {
     @display {label: "Get Object As Stream"}
     remote isolated function getObjectAsStream(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
-            @display {label: "Retrieval Configuration"} GetObjectConfig config = {}) 
+            *GetObjectConfig config) 
             returns @display {label: "Byte Stream"} stream<byte[], Error?>|Error {
         S3StreamResult streamImpl = check nativeGetObject(self, bucketName, objectKey, config);
         return new stream<byte[], Error?>(streamImpl);
@@ -141,7 +141,7 @@ public isolated client class Client {
     @display {label: "Delete Object"}
     remote isolated function deleteObject(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
-            @display {label: "Deletion Configuration"} DeleteObjectConfig config = {}) returns Error? {
+            *DeleteObjectConfig config) returns Error? {
         check nativeDeleteObject(self, bucketName, objectKey, config);
     }
 
@@ -152,7 +152,7 @@ public isolated client class Client {
     # + return - List of objects or an Error
     @display {label: "List Objects"}
     remote isolated function listObjects(@display {label: "Bucket Name"} string bucketName,
-            @display {label: "Listing Configuration"} ListObjectsConfig config = {})
+            *ListObjectsConfig config)
             returns @display {label: "Objects List"} ListObjectsResponse|Error {
         json result = check nativeListObjectsV2(self, bucketName, config);
         ListObjectsResponse|error response = result.fromJsonWithType();
@@ -171,7 +171,7 @@ public isolated client class Client {
     @display {label: "Create Presigned URL"}
     remote isolated function createPresignedUrl(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
-            @display {label: "Presigned URL Configuration"} PresignedUrlConfig config = {}) 
+            *PresignedUrlConfig config) 
             returns @display {label: "Presigned URL"} string|Error {
         return check nativeCreatePresignedUrl(self, bucketName, objectKey, config);
     }
@@ -185,7 +185,7 @@ public isolated client class Client {
     @display {label: "Get Object Metadata"}
     remote isolated function getObjectMetadata(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
-            @display {label: "Metadata Configuration"} HeadObjectConfig config = {}) 
+            *HeadObjectConfig config) 
             returns @display {label: "Metadata"} ObjectMetadata|Error {
         json result = check nativeHeadObject(self, bucketName, objectKey, config);
         ObjectMetadata|error metadata = result.fromJsonWithType();
@@ -208,7 +208,7 @@ public isolated client class Client {
             @display {label: "Source Key"} string sourceKey,
             @display {label: "Destination Bucket"} string destinationBucket,
             @display {label: "Destination Key"} string destinationKey,
-            @display {label: "Copy Configuration"} CopyObjectConfig config = {}) returns Error? {
+            *CopyObjectConfig config) returns Error? {
         check nativeCopyObject(self, sourceBucket, sourceKey, destinationBucket, destinationKey, config);
     }
 
@@ -233,7 +233,7 @@ public isolated client class Client {
     @display {label: "Create Multipart Upload"}
     remote isolated function createMultipartUpload(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
-            @display {label: "Upload Configuration"} MultipartUploadConfig config = {}) 
+            *MultipartUploadConfig config) 
             returns @display {label: "Upload ID"} string|Error {
         return check nativeCreateMultipartUpload(self, bucketName, objectKey, config);
     }
@@ -253,12 +253,11 @@ public isolated client class Client {
             @display {label: "Upload ID"} string uploadId,
             @display {label: "Part Number"} int partNumber,
             @display {label: "Content"} ObjectContent content,
-            @display {label: "Upload Part Config"} UploadPartConfig config = {})
+            *UploadPartConfig config)
             returns @display {label: "ETag"} string|Error {
         byte[] converted = toByteArray(content);
         return check nativeUploadPart(self, bucketName, objectKey, uploadId, partNumber, converted, config);
     }
-
 
     # Uploads a part from a stream.
     #
@@ -275,12 +274,10 @@ public isolated client class Client {
             @display {label: "Upload ID"} string uploadId,
             @display {label: "Part Number"} int partNumber,
             @display {label: "Content Stream"} stream<byte[], error?> contentStream,
-            @display {label: "Upload Part Config"} UploadPartConfig config = {})
+            *UploadPartConfig config)
             returns @display {label: "ETag"} string|Error {
         return check nativeUploadPartWithStream(self, bucketName, objectKey, uploadId, partNumber, contentStream, config);
     }
-
-
 
     # Completes a multipart upload.
     #
@@ -312,8 +309,6 @@ public isolated client class Client {
         check nativeAbortMultipartUpload(self, bucketName, objectKey, uploadId);
     }
 }
-
-
 
 // NATIVE INTEROP DECLARATIONS
 isolated function initClient(Client clientObj, ConnectionConfig config) returns Error? = @java:Method {

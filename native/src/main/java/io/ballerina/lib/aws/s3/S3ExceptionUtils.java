@@ -30,6 +30,14 @@ public class S3ExceptionUtils {
 
     private static Module s3Module;
 
+    // Error type names matching Ballerina error definitions
+    private static final String ERROR = "Error";
+    private static final String NO_SUCH_KEY_ERROR = "NoSuchKeyError";
+    private static final String BUCKET_ALREADY_EXISTS_ERROR = "BucketAlreadyExistsError";
+    private static final String BUCKET_ALREADY_OWNED_BY_YOU_ERROR = "BucketAlreadyOwnedByYouError";
+    private static final String NO_SUCH_BUCKET_ERROR = "NoSuchBucketError";
+    private static final String BUCKET_NOT_EMPTY_ERROR = "BucketNotEmptyError";
+
     /**
      * Initialize the module reference. Should be called during client initialization.
      */
@@ -44,11 +52,21 @@ public class S3ExceptionUtils {
      * @return BError instance of module's Error type
      */
     public static BError createError(String message) {
+        return createError(ERROR, message);
+    }
+
+    /**
+     * Creates a Ballerina Error of the specified type.
+     *
+     * @param errorType The error type name
+     * @param message   The error message
+     * @return BError instance of the specified type
+     */
+    public static BError createError(String errorType, String message) {
         if (s3Module != null) {
-            return ErrorCreator.createError(s3Module, "Error", 
+            return ErrorCreator.createError(s3Module, errorType,
                     StringUtils.fromString(message), null, null);
         }
-        // Fallback if module not initialized
         return ErrorCreator.createError(StringUtils.fromString(message));
     }
 
@@ -61,7 +79,7 @@ public class S3ExceptionUtils {
      */
     public static BError createError(String message, BError cause) {
         if (s3Module != null) {
-            return ErrorCreator.createError(s3Module, "Error", 
+            return ErrorCreator.createError(s3Module, ERROR,
                     StringUtils.fromString(message), cause, null);
         }
         return ErrorCreator.createError(StringUtils.fromString(message), cause);
@@ -69,20 +87,51 @@ public class S3ExceptionUtils {
 
     /**
      * Creates a Ballerina Error from a Throwable.
+     * Maps AWS S3 specific exceptions to corresponding Ballerina sub-error types.
      *
      * @param t The throwable
-     * @return BError instance of module's Error type
+     * @return BError instance of the appropriate error type
      */
     public static BError createError(Throwable t) {
-        String message;
         if (t instanceof S3Exception) {
             S3Exception s3Ex = (S3Exception) t;
-            String errorMessage = s3Ex.awsErrorDetails() != null ? 
-                s3Ex.awsErrorDetails().errorMessage() : s3Ex.getMessage();
-            message = errorMessage != null ? errorMessage : s3Ex.getMessage();
-        } else {
-            message = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
+            String errorCode = s3Ex.awsErrorDetails() != null ?
+                    s3Ex.awsErrorDetails().errorCode() : null;
+            String errorMessage = s3Ex.awsErrorDetails() != null ?
+                    s3Ex.awsErrorDetails().errorMessage() : s3Ex.getMessage();
+            String message = errorMessage != null ? errorMessage : s3Ex.getMessage();
+
+            // Map AWS error codes to Ballerina error types
+            String errorType = mapErrorCode(errorCode);
+            return createError(errorType, message);
         }
+        String message = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
         return createError(message);
+    }
+
+    /**
+     * Maps AWS S3 error codes to Ballerina error type names.
+     *
+     * @param errorCode The AWS error code
+     * @return The corresponding Ballerina error type name
+     */
+    private static String mapErrorCode(String errorCode) {
+        if (errorCode == null) {
+            return ERROR;
+        }
+        switch (errorCode) {
+            case "NoSuchKey":
+                return NO_SUCH_KEY_ERROR;
+            case "BucketAlreadyExists":
+                return BUCKET_ALREADY_EXISTS_ERROR;
+            case "BucketAlreadyOwnedByYou":
+                return BUCKET_ALREADY_OWNED_BY_YOU_ERROR;
+            case "NoSuchBucket":
+                return NO_SUCH_BUCKET_ERROR;
+            case "BucketNotEmpty":
+                return BUCKET_NOT_EMPTY_ERROR;
+            default:
+                return ERROR;
+        }
     }
 }

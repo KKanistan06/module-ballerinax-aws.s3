@@ -47,10 +47,8 @@ function testCreateBucket() returns error? {
     CreateBucketConfig bucketConfig = {acl: PRIVATE};
     error? result = s3Client->createBucket(testBucketName, bucketConfig);
     // Ignore error if bucket already exists (owned by us)
-    if result is error {
-        if !result.message().includes("BucketAlreadyOwnedByYou") {
-            return result;
-        }
+    if result is error && !(result is BucketAlreadyOwnedByYouError) {
+        return result;
     }
 }
 
@@ -1045,10 +1043,8 @@ function testDeleteBucketApi() returns error? {
     // Create a temporary bucket for deletion test
     CreateBucketConfig bucketConfig = {acl: PRIVATE};
     error? createResult = s3Client->createBucket(tempBucketName, bucketConfig);
-    if createResult is error {
-        if !createResult.message().includes("BucketAlreadyOwnedByYou") {
-            return createResult;
-        }
+    if createResult is error && !(createResult is BucketAlreadyOwnedByYouError) {
+        return createResult;
     }
     
     // Delete the temporary bucket
@@ -1088,10 +1084,7 @@ function testDeleteBucket() returns error? {
     // Now delete the bucket
     error? result = s3Client->deleteBucket(testBucketName);
     // Ignore error if bucket doesn't exist or is not empty
-    if result is error {
-        string msg = result.message();
-        if !msg.includes("NoSuchBucket") && !msg.includes("BucketNotEmpty") {
-            return result;
-        }
+    if result is error && !(result is NoSuchBucketError) && !(result is BucketNotEmptyError) {
+        return result;
     }
 }

@@ -14,12 +14,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
+# Represents the base error type for the AWS S3 module.
 public type Error distinct error;
 
+# Represents an error returned from AWS S3 service.
 public type S3Error distinct Error;
 
+# Represents an error when the specified key does not exist.
 public type NoSuchKeyError distinct S3Error;
 
+# Represents an error when trying to create a bucket that already exists.
 public type BucketAlreadyExistsError distinct S3Error;
 
+# Represents an error when the bucket already exists and is owned by you.
+public type BucketAlreadyOwnedByYouError distinct S3Error;
+
+# Represents an error when the specified bucket does not exist.
+public type NoSuchBucketError distinct S3Error;
+
+# Represents an error when the bucket is not empty (for deletion).
+public type BucketNotEmptyError distinct S3Error;
+
+# Represents a client-side error.
 public type ClientError distinct Error;
