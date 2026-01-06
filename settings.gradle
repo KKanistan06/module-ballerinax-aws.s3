@@ -10,6 +10,7 @@ pluginManagement {
     plugins {
         id "net.researchgate.release" version "${releasePluginVersion}"
         id "io.ballerina.plugin" version "${ballerinaGradlePluginVersion}"
+        id "com.github.johnrengelman.shadow" version "8.1.1"
     }
 
     repositories {

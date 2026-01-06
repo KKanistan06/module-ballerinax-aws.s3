@@ -16,6 +16,7 @@
 
 plugins {
     id 'java'
+    id 'com.github.johnrengelman.shadow'
 }
 description = 'AWS S3 API connector for Ballerina.'
 configurations {
@@ -40,10 +41,5 @@ jar {
     }
 }
 compileJava {
-    doFirst {
-        options.compilerArgs = [
-                '--module-path', classpath.asPath,
-        ]
-        classpath = files()
-    }
+    options.encoding = 'UTF-8'
 }

@@ -17,6 +17,7 @@
  */
 
 plugins {
+    id 'base'
     id 'net.researchgate.release'
 }
 
@@ -25,6 +26,11 @@ allprojects {
     version = project.version
 
     apply plugin: 'maven-publish'
+
+    ext {
+        timestampedVersionRegex = '.*-\\d{8}-\\d{6}-\\w{8}.*'
+        snapshotVersion = '-SNAPSHOT'
+    }
 
     repositories {
         mavenLocal()
@@ -55,6 +61,13 @@ def moduleVersion = project.version.replace("-SNAPSHOT", "")
 
 task buildNative {
     dependsOn ':native:shadowJar'
+    doLast {
+        copy {
+            from "${project.projectDir}/native/build/libs/native-${project.version}-all.jar"
+            into "${project.projectDir}/ballerina/lib"
+            rename { "aws-s3-native-${moduleVersion}.jar" }
+        }
+    }
 }
 
 task buildBallerina(type: Exec) {
@@ -86,8 +99,8 @@ release {
     versionPropertyFile = 'gradle.properties'
     tagTemplate = 'v${version}'
     git {
-        requireBranch.set("release-${moduleVersion}")
-        pushToRemote.set('origin')
+        requireBranch = "release-${moduleVersion}"
+        pushToRemote = 'origin'
     }
 }
 
