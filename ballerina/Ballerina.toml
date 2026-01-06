@@ -25,7 +25,7 @@ path = "./lib/s3-2.25.16.jar"
 groupId = "io.netty"
 artifactId = "netty-transport-native-unix-common"
 version = "4.1.107.Final"
-path = "./lib/netty-transport-native-unix-common-4.1.107.Final.jar"
+path = "../../lib/netty-transport-native-unix-common-4.1.107.Final.jar"
 
 [[platform.java21.dependency]]
 groupId = "io.netty"
@@ -181,7 +181,7 @@ path = "./lib/checksums-spi-2.25.16.jar"
 groupId = "software.amazon.awssdk"
 artifactId = "checksums"
 version = "2.25.16"
-path = "./lib/checksums-2.25.16.jar"
+path = "../lib/checksums-2.25.16.jar"
 
 [[platform.java21.dependency]]
 groupId = "software.amazon.awssdk"
