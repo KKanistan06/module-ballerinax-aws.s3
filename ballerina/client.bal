@@ -90,7 +90,7 @@ public isolated client class Client {
     #
     # + bucketName - The name of the bucket
     # + objectKey - The path of the object
-    # + content - The object content (string | xml | json | byte[])
+    # + content - The object content
     # + config - Optional upload configuration
     # + return - An Error if the upload fails
     @display {label: "Put Object"}
@@ -244,7 +244,7 @@ public isolated client class Client {
     # + objectKey - The path of the object
     # + uploadId - The upload ID from createMultipartUpload
     # + partNumber - The part number (1-10000)
-    # + content - The part content (string | xml | json | byte[])
+    # + content - The part content
     # + config - Optional upload part configuration
     # + return - ETag of the uploaded part or an Error
     @display {label: "Upload Part"}
