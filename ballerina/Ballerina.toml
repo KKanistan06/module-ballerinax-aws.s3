@@ -9,11 +9,8 @@ keywords = ["Content & Files/File Management & Storage", "Cost/Paid", "Vendor/Am
 icon = "icon.png"
 repository = "https://github.com/ballerina-platform/module-ballerinax-aws.s3"
 
-[build-options]
-observabilityIncluded = true
-
 [[platform.java21.dependency]]
-path = "./lib/aws-s3-native-5.0.0.jar"
-groupId = "io.ballerina.lib.aws.s3"
-artifactId = "aws-s3-native"
+groupId = "io.ballerina.stdlib"
+artifactId = "http-native"
 version = "5.0.0"
+path = "../native/build/libs/native-5.0.0-SNAPSHOT.jar"
