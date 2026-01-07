@@ -6,9 +6,11 @@ configurable string secretAccessKey = ?;
 configurable string region = ?;
 
 s3:ConnectionConfig amazonS3Config = {
-    accessKeyId: accessKeyId,
-    secretAccessKey: secretAccessKey,
-    region: region
+    auth: {
+        accessKeyId,
+        secretAccessKey
+    },
+    region
 };
 
 final s3:Client amazonS3Client = check new (amazonS3Config);

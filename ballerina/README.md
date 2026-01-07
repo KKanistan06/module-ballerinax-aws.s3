@@ -33,12 +33,14 @@ Create a `s3:ConnectionConfig` with the tokens obtained, and initialize the conn
 
 ```ballerina
 s3:ConnectionConfig amazonS3Config = {
-    accessKeyId: <ACCESS_KEY_ID>,
-    secretAccessKey: <SECRET_ACCESS_KEY>,
-    region: <REGION>
+    auth: {
+        accessKeyId,
+        secretAccessKey
+    },
+    region
 };
 
-s3:Client amazonS3Client = check new(amazonS3Config);
+final s3:Client amazonS3Client = check new (amazonS3Config);
 ```
 
 ### Step 3: Invoke connector operation
