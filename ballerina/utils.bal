@@ -26,7 +26,6 @@ isolated function isValidBucketName(string bucketName) returns boolean {
     
     // 2. Regex check: Lowercase letters, numbers, hyphens, and dots only.
     // Must start and end with a letter or number.
-    // (Simplified regex for demonstration)
     string:RegExp bucketPattern = re `^[a-z0-9][a-z0-9-.]*[a-z0-9]$`;
     return bucketPattern.isFullMatch(bucketName);
 }
@@ -43,7 +42,7 @@ isolated function getErrorMessage(Error err) returns string {
 # 
 # + content - The ObjectContent to convert
 # + return - The byte array representation or an Error
-isolated function toByteArray(ObjectContent content) returns byte[] {
+isolated function toByteArray(anydata content) returns byte[] {
     if content is byte[] {
         return content;
     } else if content is string {

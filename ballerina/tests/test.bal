@@ -22,7 +22,8 @@ import ballerina/test;
 configurable string testBucketName = os:getEnv("BUCKET_NAME");
 configurable string accessKeyId = os:getEnv("ACCESS_KEY_ID");
 configurable string secretAccessKey = os:getEnv("SECRET_ACCESS_KEY");
-configurable string region = os:getEnv("REGION");
+// configurable string region = os:getEnv("REGION");
+const string region = "eu-north-1";
 
 const fileName = "test.txt";
 const fileName2 = "test2.txt";
@@ -867,6 +868,59 @@ function testGetObjectAsStream() returns error? {
 
 @test:Config {
     dependsOn: [testGetObjectAsStream]
+}
+function testGetObject() returns error? {
+    // Test getting object as byte[]
+    byte[] bytesResponse = check s3Client->getObject(testBucketName, fileName);
+    string resContent = check string:fromBytes(bytesResponse);
+    test:assertEquals(check string:fromBytes(content), resContent, "Content mismatch in getObject as bytes");
+}
+
+@test:Config {
+    dependsOn: [testGetObjectAsStream]
+}
+function testGetObjectAsString() returns error? {
+    // Test getting object as string using the unified getObject API
+    string stringResponse = check s3Client->getObject(testBucketName, fileName, string);
+    test:assertEquals(check string:fromBytes(content), stringResponse, "Content mismatch in getObject with string type");
+}
+
+@test:Config {
+    dependsOn: [testGetObjectAsString]
+}
+function testGetObjectAsJson() returns error? {
+    // Create a JSON object first
+    json jsonContent = {"name": "test", "value": 123};
+    string jsonKey = "test-json-object.json";
+    check s3Client->putObject(testBucketName, jsonKey, jsonContent);
+    
+    // Get the object as JSON using the unified getObject API
+    json response = check s3Client->getObject(testBucketName, jsonKey, json);
+    test:assertEquals(response, jsonContent, "JSON content mismatch");
+    
+    // Cleanup
+    check s3Client->deleteObject(testBucketName, jsonKey);
+}
+
+@test:Config {
+    dependsOn: [testGetObjectAsJson]
+}
+function testGetObjectAsXml() returns error? {
+    // Create an XML object first
+    xml xmlContent = xml `<root><name>test</name><value>123</value></root>`;
+    string xmlKey = "test-xml-object.xml";
+    check s3Client->putObject(testBucketName, xmlKey, xmlContent);
+    
+    // Get the object as XML using the unified getObject API
+    xml response = check s3Client->getObject(testBucketName, xmlKey, Xml);
+    test:assertEquals(response.toString(), xmlContent.toString(), "XML content mismatch");
+    
+    // Cleanup
+    check s3Client->deleteObject(testBucketName, xmlKey);
+}
+
+@test:Config {
+    dependsOn: [testGetObjectAsXml]
 }
 function testListObjects() returns error? {
     ListObjectsConfig listConfig = {fetchOwner: true};

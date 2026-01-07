@@ -96,7 +96,7 @@ public isolated client class Client {
     @display {label: "Put Object"}
     remote isolated function putObject(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
-            @display {label: "Content"} ObjectContent content,
+            @display {label: "Content"} anydata content,
             *PutObjectConfig config) returns Error? {
         byte[] converted = toByteArray(content);
         check nativePutObjectWithContent(self, bucketName, objectKey, converted, config);
@@ -131,6 +131,25 @@ public isolated client class Client {
         S3StreamResult streamImpl = check nativeGetObject(self, bucketName, objectKey, config);
         return new stream<byte[], Error?>(streamImpl);
     }
+
+    # Downloads an S3 object and returns its content in the specified type.
+    # This method loads the entire object into memory and is suitable for smaller objects.
+    # For large objects, consider using `getObjectAsStream` instead.
+    #
+    # + bucketName - The name of the bucket
+    # + objectKey - The path of the object
+    # + targetType - The type to return the content as (Bytes, string, json, or xml). Defaults to Bytes
+    # + config - Optional retrieval configuration
+    # + return - The object content in the requested type, or an Error
+    @display {label: "Get Object"}
+    remote isolated function getObject(@display {label: "Bucket Name"} string bucketName,
+            @display {label: "Object Key"} string objectKey,
+            @display {label: "Target Type"} typedesc<anydata> targetType = Bytes,
+            *GetObjectConfig config) 
+            returns @display {label: "Content"} targetType|Error = @java:Method {
+        name: "getObjectWithType",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Deletes an S3 object from an S3 bucket.
     #
@@ -252,7 +271,7 @@ public isolated client class Client {
             @display {label: "Object Key"} string objectKey,
             @display {label: "Upload ID"} string uploadId,
             @display {label: "Part Number"} int partNumber,
-            @display {label: "Content"} ObjectContent content,
+            @display {label: "Content"} anydata content,
             *UploadPartConfig config)
             returns @display {label: "ETag"} string|Error {
         byte[] converted = toByteArray(content);
