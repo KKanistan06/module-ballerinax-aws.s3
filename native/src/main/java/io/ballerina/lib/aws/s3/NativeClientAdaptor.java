@@ -334,10 +334,9 @@ public class NativeClientAdaptor {
                     GetBucketLocationResponse locationResponse = s3.getBucketLocation(locationRequest);
                     region = locationResponse.locationConstraintAsString();
                     if (region == null || region.isEmpty()) {
-                        region = "us-east-1"; // Default region for buckets without explicit location
+                        region = "us-east-1";
                     }
                 } catch (Exception e) {
-                    // If we can't get the region (e.g., permissions), use empty string
                     region = "";
                 }
                 bucketRecord.put(StringUtils.fromString("region"), StringUtils.fromString(region));
@@ -412,7 +411,6 @@ public class NativeClientAdaptor {
             applyPutObjectConfig(builder, config);
             
             // Buffer the stream content to get accurate length
-            // This is necessary because S3 requires content length upfront
             InputStream inputStream = new BallerinaStreamInputStream(env, contentStream);
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             byte[] data = new byte[8192];

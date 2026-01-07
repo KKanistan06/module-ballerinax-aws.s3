@@ -9,10 +9,10 @@ configurable string bucketName = ?;
 
 s3:ConnectionConfig amazonS3Config = {
     auth: {
-        accessKeyId: accessKeyId,
-        secretAccessKey: secretAccessKey
+        accessKeyId,
+        secretAccessKey
     },
-    region: region
+    region
 };
 
 final s3:Client amazonS3Client = check new (amazonS3Config);
