@@ -26,7 +26,6 @@ isolated function isValidBucketName(string bucketName) returns boolean {
     
     // 2. Regex check: Lowercase letters, numbers, hyphens, and dots only.
     // Must start and end with a letter or number.
-    // (Simplified regex for demonstration)
     string:RegExp bucketPattern = re `^[a-z0-9][a-z0-9-.]*[a-z0-9]$`;
     return bucketPattern.isFullMatch(bucketName);
 }

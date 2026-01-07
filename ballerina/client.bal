@@ -132,6 +132,29 @@ public isolated client class Client {
         return new stream<byte[], Error?>(streamImpl);
     }
 
+    # Downloads an S3 object and returns its content in the specified type.
+    # This method loads the entire object into memory and is suitable for smaller objects.
+    # For large objects, consider using `getObjectAsStream` instead.
+    #
+    # + bucketName - The name of the bucket
+    # + objectKey - The path of the object
+    # + targetType - The type to return the content as (Bytes, string, json, or xml). Defaults to Bytes
+    # + config - Optional retrieval configuration
+    # + return - The object content in the requested type, or an Error
+    @display {label: "Get Object"}
+    remote isolated function getObject(@display {label: "Bucket Name"} string bucketName,
+            @display {label: "Object Key"} string objectKey,
+            @display {label: "Target Type"} typedesc<anydata> targetType = Bytes,
+            *GetObjectConfig config) 
+            returns @display {label: "Content"} targetType|Error = @java:Method {
+        name: "getObjectWithType",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
+
+    function getObjectInternal(byte[] bytes, typedesc<anydata> targetType) returns anydata|Error {
+        
+    }
+
     # Deletes an S3 object from an S3 bucket.
     #
     # + bucketName - The name of the bucket

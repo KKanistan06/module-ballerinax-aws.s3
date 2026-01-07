@@ -21,12 +21,18 @@ import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.MapType;
 import io.ballerina.runtime.api.types.PredefinedTypes;
+import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.values.BStream;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BObject;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.api.values.BMap;
+import io.ballerina.runtime.api.values.BTypedesc;
+import io.ballerina.runtime.api.utils.JsonUtils;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.utils.TypeUtils;
+import io.ballerina.runtime.api.utils.XmlUtils;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
@@ -36,6 +42,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.profiles.ProfileFile;
 
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
@@ -463,6 +470,60 @@ public class NativeClientAdaptor {
             BObject streamWrapper = ValueCreator.createObjectValue(env.getCurrentModule(), "S3StreamResult");
             streamWrapper.addNativeData("NATIVE_STREAM", s3Stream);
             return streamWrapper;
+        } catch (Exception e) {
+            return S3ExceptionUtils.createError(e);
+        }
+    }
+
+    public static Object getObjectWithType(Environment environment, BObject clientObj, BString bucket, BString key,
+            BTypedesc targetType, BMap<BString, Object> config) {
+        S3Client s3 = getClient(clientObj);
+        try {
+            GetObjectRequest.Builder builder = GetObjectRequest.builder()
+                    .bucket(bucket.getValue())
+                    .key(key.getValue());
+
+            applyStringConfig(config, "versionId", builder::versionId);
+            applyStringConfig(config, "range", builder::range);
+            applyStringConfig(config, "ifMatch", builder::ifMatch);
+            applyStringConfig(config, "ifNoneMatch", builder::ifNoneMatch);
+            applyInstantConfig(config, "ifModifiedSince", builder::ifModifiedSince);
+            applyInstantConfig(config, "ifUnmodifiedSince", builder::ifUnmodifiedSince);
+            applyIntConfig(config, "partNumber", builder::partNumber);
+
+            ResponseBytes<GetObjectResponse> responseBytes = s3.getObjectAsBytes(builder.build());
+            byte[] bytes = responseBytes.asByteArray();
+            
+            Type describingType = targetType.getDescribingType();
+            int typeTag = describingType.getTag();
+            String typeName = describingType.getName();
+            
+            // Handle byte[] (array type) - check both tag and type name for "Bytes" alias
+            if (typeTag == TypeTags.ARRAY_TAG || "Bytes".equals(typeName)) {
+                return ValueCreator.createArrayValue(bytes);
+            }
+            
+            // Handle string
+            if (typeTag == TypeTags.STRING_TAG) {
+                return StringUtils.fromString(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+            }
+            
+            // Handle json
+            if (typeTag == TypeTags.JSON_TAG || typeTag == TypeTags.MAP_TAG) {
+                String content = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                return JsonUtils.parse(content);
+            }
+            
+            // Handle xml - check both tag and type name for "Xml" alias
+            if (TypeTags.isXMLTypeTag(typeTag)) {
+                String content = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                return XmlUtils.parse(content);
+            }
+
+            return environment.getRuntime().callMethod(clientObj, "getObjectInternal", null, ValueCreator.createArrayValue(bytes), targetType);
+            
+            // Default to byte[]
+            // return ValueCreator.createArrayValue(bytes);
         } catch (Exception e) {
             return S3ExceptionUtils.createError(e);
         }

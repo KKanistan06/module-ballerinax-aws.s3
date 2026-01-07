@@ -67,6 +67,12 @@ public type Bucket record {
 # Content types allowed for S3 objects.
 public type ObjectContent anydata;
 
+# Represents byte array type for getObject return type.
+public type Bytes byte[];
+
+# Represents xml type for getObject return type.
+public type Xml xml;
+
 # Configuration for uploading an object.
 public type PutObjectConfig record {|
     # The file type (e.g., "image/jpeg", "application/pdf", "text/plain")
