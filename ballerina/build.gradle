@@ -187,11 +187,6 @@ dependencies {
     }
 }
 
-// task copyToLib(type: Copy) {
-//     into "${project.projectDir}/lib"
-//     from configurations.externalJars
-// }
-
 task updateTomlFiles {
     doLast {
         def newBallerinaToml = ballerinaTomlFilePlaceHolder.text.replace("@project.version@", project.version)

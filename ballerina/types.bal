@@ -65,7 +65,7 @@ public type Bucket record {
 };
 
 # Content types allowed for S3 objects.
-public type ObjectContent string|xml|json|byte[];
+public type ObjectContent anydata;
 
 # Configuration for uploading an object.
 public type PutObjectConfig record {|

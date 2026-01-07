@@ -47,7 +47,7 @@ function testCreateBucket() returns error? {
     CreateBucketConfig bucketConfig = {acl: PRIVATE};
     error? result = s3Client->createBucket(testBucketName, bucketConfig);
     // Ignore error if bucket already exists (owned by us)
-    if result is error && !(result is BucketAlreadyOwnedByYouError) {
+    if result is error && result !is BucketAlreadyOwnedByYouError {
         return result;
     }
 }
@@ -105,7 +105,7 @@ function testCreateObject() returns error? {
 function testPutObjectFromFile() returns error? {
     
     // Create a temporary file with test content
-    string tempFilePath = "./tests/temp_upload_file.txt";
+    string tempFilePath = "./tests/resources/temp_upload_file.txt";
     string fileContent = "Content uploaded from file";
     check io:fileWriteString(tempFilePath, fileContent);
     
@@ -134,7 +134,7 @@ function testPutObjectFromFile() returns error? {
 function testPutObjectFromFileWithMetadata() returns error? {
     
     // Create a temporary file with test content
-    string tempFilePath = "./tests/temp_upload_file_meta.txt";
+    string tempFilePath = "./tests/resources/temp_upload_file_meta.txt";
     string fileContent = "Content with metadata";
     check io:fileWriteString(tempFilePath, fileContent);
     
@@ -275,7 +275,7 @@ function testPutObjectWithByteArrayContent() returns error? {
 }
 function testPutObjectAsStream() returns error? {
     string objectKey = "test_stream_content.txt";
-    string tempFilePath = "./tests/temp_stream_file.txt";
+    string tempFilePath = "./tests/resources/temp_stream_file.txt";
     string streamContent = "This is content uploaded via stream";
     
     // Create a temporary file to stream from
@@ -307,7 +307,7 @@ function testPutObjectAsStream() returns error? {
 }
 function testPutObjectAsStreamWithMetadata() returns error? {
     string objectKey = "test_stream_with_metadata.txt";
-    string tempFilePath = "./tests/temp_stream_meta_file.txt";
+    string tempFilePath = "./tests/resources/temp_stream_meta_file.txt";
     string streamContent = "Stream content with metadata";
     
     // Create a temporary file to stream from
@@ -357,7 +357,7 @@ function testPutObjectAsStreamWithMetadata() returns error? {
 }
 function testPutObjectAsStreamLargeFile() returns error? {
     string objectKey = "test_stream_large_content.txt";
-    string tempFilePath = "./tests/temp_large_stream_file.txt";
+    string tempFilePath = "./tests/resources/temp_large_stream_file.txt";
     
     // Create a larger content (multiple chunks)
     string largeContent = "";
@@ -396,7 +396,7 @@ function testPutObjectAsStreamLargeFile() returns error? {
 }
 function testPutObjectAsStreamDirect() returns error? {
     string objectKey = "test_put_object_as_stream_direct.txt";
-    string tempFilePath = "./tests/temp_stream_direct_file.txt";
+    string tempFilePath = "./tests/resources/temp_stream_direct_file.txt";
     string streamContent = "This is content uploaded directly via putObjectAsStream method";
     
     // Create a temporary file to stream from
@@ -428,7 +428,7 @@ function testPutObjectAsStreamDirect() returns error? {
 }
 function testPutObjectAsStreamDirectWithMetadata() returns error? {
     string objectKey = "test_put_object_as_stream_direct_meta.txt";
-    string tempFilePath = "./tests/temp_stream_direct_meta_file.txt";
+    string tempFilePath = "./tests/resources/temp_stream_direct_meta_file.txt";
     string streamContent = "Stream content with metadata via putObjectAsStream";
     
     // Create a temporary file to stream from
@@ -467,7 +467,7 @@ function testPutObjectAsStreamDirectWithMetadata() returns error? {
 }
 function testUploadPartAsStreamDirect() returns error? {
     string objectKey = "test_upload_part_as_stream_direct.txt";
-    string tempFilePath = "./tests/temp_upload_part_stream.txt";
+    string tempFilePath = "./tests/resources/temp_upload_part_stream.txt";
     
     // Create content for the part (must be at least 5MB for non-last part in multipart)
     // For testing, we'll use this as the only part so size doesn't matter
@@ -508,8 +508,8 @@ function testUploadPartAsStreamDirect() returns error? {
 }
 function testUploadMultiplePartsAsStreamDirect() returns error? {
     string objectKey = "test_multi_part_stream_direct.txt";
-    string tempFilePath1 = "./tests/temp_part1_stream.txt";
-    string tempFilePath2 = "./tests/temp_part2_stream.txt";
+    string tempFilePath1 = "./tests/resources/temp_part1_stream.txt";
+    string tempFilePath2 = "./tests/resources/temp_part2_stream.txt";
     
     // AWS S3 requires each part (except the last) to be at least 5MB
     // Create 5MB content for part 1
@@ -923,7 +923,7 @@ function testDeleteMultipartUpload() returns error? {
 }
 function testUploadPartAsStream() returns error? {
     string objectKey = "stream_multipart_upload.txt";
-    string tempFilePath = "./tests/temp_stream_part.txt";
+    string tempFilePath = "./tests/resources/temp_stream_part.txt";
     
     // Create content for the part
     string partContent = "This is part content uploaded via stream for multipart upload test.";
@@ -963,11 +963,10 @@ function testUploadPartAsStream() returns error? {
 }
 function testUploadMultiplePartsAsStream() returns error? {
     string objectKey = "multi_part_stream_upload.txt";
-    string tempFilePath1 = "./tests/temp_multi_part1.bin";
-    string tempFilePath2 = "./tests/temp_multi_part2.txt";
+    string tempFilePath1 = "./tests/resources/temp_multi_part1.bin";
+    string tempFilePath2 = "./tests/resources/temp_multi_part2.txt";
     
     // AWS S3 requires each part (except the last) to be at least 5MB
-    // Create content for multiple parts - Part 1 must be >= 5MB, Part 2 can be smaller
     int minPartSize = 5 * 1024 * 1024; // 5MB minimum
     byte[] part1Content = [];
     foreach int i in 0 ..< minPartSize {
@@ -1043,7 +1042,7 @@ function testDeleteBucketApi() returns error? {
     // Create a temporary bucket for deletion test
     CreateBucketConfig bucketConfig = {acl: PRIVATE};
     error? createResult = s3Client->createBucket(tempBucketName, bucketConfig);
-    if createResult is error && !(createResult is BucketAlreadyOwnedByYouError) {
+    if createResult is error && createResult !is BucketAlreadyOwnedByYouError {
         return createResult;
     }
     
@@ -1084,7 +1083,7 @@ function testDeleteBucket() returns error? {
     // Now delete the bucket
     error? result = s3Client->deleteBucket(testBucketName);
     // Ignore error if bucket doesn't exist or is not empty
-    if result is error && !(result is NoSuchBucketError) && !(result is BucketNotEmptyError) {
+    if result is error && result !is NoSuchBucketError && result !is BucketNotEmptyError {
         return result;
     }
 }
