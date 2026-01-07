@@ -96,7 +96,7 @@ public isolated client class Client {
     @display {label: "Put Object"}
     remote isolated function putObject(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
-            @display {label: "Content"} ObjectContent content,
+            @display {label: "Content"} anydata content,
             *PutObjectConfig config) returns Error? {
         byte[] converted = toByteArray(content);
         check nativePutObjectWithContent(self, bucketName, objectKey, converted, config);
@@ -150,10 +150,6 @@ public isolated client class Client {
         name: "getObjectWithType",
         'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
     } external;
-
-    function getObjectInternal(byte[] bytes, typedesc<anydata> targetType) returns anydata|Error {
-        
-    }
 
     # Deletes an S3 object from an S3 bucket.
     #
@@ -275,7 +271,7 @@ public isolated client class Client {
             @display {label: "Object Key"} string objectKey,
             @display {label: "Upload ID"} string uploadId,
             @display {label: "Part Number"} int partNumber,
-            @display {label: "Content"} ObjectContent content,
+            @display {label: "Content"} anydata content,
             *UploadPartConfig config)
             returns @display {label: "ETag"} string|Error {
         byte[] converted = toByteArray(content);

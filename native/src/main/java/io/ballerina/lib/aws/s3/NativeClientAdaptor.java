@@ -31,7 +31,6 @@ import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BTypedesc;
 import io.ballerina.runtime.api.utils.JsonUtils;
 import io.ballerina.runtime.api.utils.StringUtils;
-import io.ballerina.runtime.api.utils.TypeUtils;
 import io.ballerina.runtime.api.utils.XmlUtils;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -475,7 +474,30 @@ public class NativeClientAdaptor {
         }
     }
 
-    public static Object getObjectWithType(Environment environment, BObject clientObj, BString bucket, BString key,
+    public static Object getObjectAsBytes(BObject clientObj, BString bucket, BString key,
+            BMap<BString, Object> config) {
+        S3Client s3 = getClient(clientObj);
+        try {
+            GetObjectRequest.Builder builder = GetObjectRequest.builder()
+                    .bucket(bucket.getValue())
+                    .key(key.getValue());
+
+            applyStringConfig(config, "versionId", builder::versionId);
+            applyStringConfig(config, "range", builder::range);
+            applyStringConfig(config, "ifMatch", builder::ifMatch);
+            applyStringConfig(config, "ifNoneMatch", builder::ifNoneMatch);
+            applyInstantConfig(config, "ifModifiedSince", builder::ifModifiedSince);
+            applyInstantConfig(config, "ifUnmodifiedSince", builder::ifUnmodifiedSince);
+            applyIntConfig(config, "partNumber", builder::partNumber);
+
+            ResponseBytes<GetObjectResponse> responseBytes = s3.getObjectAsBytes(builder.build());
+            return ValueCreator.createArrayValue(responseBytes.asByteArray());
+        } catch (Exception e) {
+            return S3ExceptionUtils.createError(e);
+        }
+    }
+
+    public static Object getObjectWithType(BObject clientObj, BString bucket, BString key,
             BTypedesc targetType, BMap<BString, Object> config) {
         S3Client s3 = getClient(clientObj);
         try {
@@ -515,15 +537,13 @@ public class NativeClientAdaptor {
             }
             
             // Handle xml - check both tag and type name for "Xml" alias
-            if (TypeTags.isXMLTypeTag(typeTag)) {
+            if (typeTag == TypeTags.XML_TAG || typeTag == TypeTags.XML_ELEMENT_TAG || "Xml".equals(typeName)) {
                 String content = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
                 return XmlUtils.parse(content);
             }
-
-            return environment.getRuntime().callMethod(clientObj, "getObjectInternal", null, ValueCreator.createArrayValue(bytes), targetType);
             
             // Default to byte[]
-            // return ValueCreator.createArrayValue(bytes);
+            return ValueCreator.createArrayValue(bytes);
         } catch (Exception e) {
             return S3ExceptionUtils.createError(e);
         }

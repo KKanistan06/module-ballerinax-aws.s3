@@ -42,7 +42,7 @@ isolated function getErrorMessage(Error err) returns string {
 # 
 # + content - The ObjectContent to convert
 # + return - The byte array representation or an Error
-isolated function toByteArray(ObjectContent content) returns byte[] {
+isolated function toByteArray(anydata content) returns byte[] {
     if content is byte[] {
         return content;
     } else if content is string {
