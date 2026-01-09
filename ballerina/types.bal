@@ -26,9 +26,9 @@ public type StaticAuthConfig record {|
 
 # Profile-based credential configuration 
 public type ProfileAuthConfig record {|
-    # AWS shared config/credentials profile name
+    # AWS shared credentials profile name
     string profileName = "default";
-    # Path to the credentials file (default: ~/.aws/credentials)
+    # Path to the credentials file
     string credentialsFilePath = "~/.aws/credentials";
 |};
 

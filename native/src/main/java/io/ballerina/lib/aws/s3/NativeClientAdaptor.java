@@ -21,17 +21,13 @@ import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.MapType;
 import io.ballerina.runtime.api.types.PredefinedTypes;
-import io.ballerina.runtime.api.types.Type;
-import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.values.BStream;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BObject;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BTypedesc;
-import io.ballerina.runtime.api.utils.JsonUtils;
 import io.ballerina.runtime.api.utils.StringUtils;
-import io.ballerina.runtime.api.utils.XmlUtils;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
@@ -474,30 +470,7 @@ public class NativeClientAdaptor {
         }
     }
 
-    public static Object getObjectAsBytes(BObject clientObj, BString bucket, BString key,
-            BMap<BString, Object> config) {
-        S3Client s3 = getClient(clientObj);
-        try {
-            GetObjectRequest.Builder builder = GetObjectRequest.builder()
-                    .bucket(bucket.getValue())
-                    .key(key.getValue());
-
-            applyStringConfig(config, "versionId", builder::versionId);
-            applyStringConfig(config, "range", builder::range);
-            applyStringConfig(config, "ifMatch", builder::ifMatch);
-            applyStringConfig(config, "ifNoneMatch", builder::ifNoneMatch);
-            applyInstantConfig(config, "ifModifiedSince", builder::ifModifiedSince);
-            applyInstantConfig(config, "ifUnmodifiedSince", builder::ifUnmodifiedSince);
-            applyIntConfig(config, "partNumber", builder::partNumber);
-
-            ResponseBytes<GetObjectResponse> responseBytes = s3.getObjectAsBytes(builder.build());
-            return ValueCreator.createArrayValue(responseBytes.asByteArray());
-        } catch (Exception e) {
-            return S3ExceptionUtils.createError(e);
-        }
-    }
-
-    public static Object getObjectWithType(BObject clientObj, BString bucket, BString key,
+    public static Object getObjectWithType(Environment env, BObject clientObj, BString bucket, BString key,
             BTypedesc targetType, BMap<BString, Object> config) {
         S3Client s3 = getClient(clientObj);
         try {
@@ -515,39 +488,22 @@ public class NativeClientAdaptor {
 
             ResponseBytes<GetObjectResponse> responseBytes = s3.getObjectAsBytes(builder.build());
             byte[] bytes = responseBytes.asByteArray();
+            BArray byteArray = ValueCreator.createArrayValue(bytes);
             
-            Type describingType = targetType.getDescribingType();
-            int typeTag = describingType.getTag();
-            String typeName = describingType.getName();
-            
-            // Handle byte[] (array type) - check both tag and type name for "Bytes" alias
-            if (typeTag == TypeTags.ARRAY_TAG || "Bytes".equals(typeName)) {
-                return ValueCreator.createArrayValue(bytes);
-            }
-            
-            // Handle string
-            if (typeTag == TypeTags.STRING_TAG) {
-                return StringUtils.fromString(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
-            }
-            
-            // Handle json
-            if (typeTag == TypeTags.JSON_TAG || typeTag == TypeTags.MAP_TAG) {
-                String content = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-                return JsonUtils.parse(content);
-            }
-            
-            // Handle xml - check both tag and type name for "Xml" alias
-            if (typeTag == TypeTags.XML_TAG || typeTag == TypeTags.XML_ELEMENT_TAG || "Xml".equals(typeName)) {
-                String content = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-                return XmlUtils.parse(content);
-            }
-            
-            // Default to byte[]
-            return ValueCreator.createArrayValue(bytes);
+            // Call Ballerina getObjectInternal function to do the conversion
+            return env.getRuntime().callMethod(
+                clientObj,
+                "getObjectInternal",
+                null,
+                byteArray,
+                targetType
+            );
         } catch (Exception e) {
             return S3ExceptionUtils.createError(e);
         }
     }
+
+
 
     public static Object deleteObject(BObject clientObj, BString bucket, BString key, BMap<BString, Object> config) {
         S3Client s3 = getClient(clientObj);
@@ -847,18 +803,8 @@ public class NativeClientAdaptor {
     public static Object createPresignedUrl(BObject clientObj, BString bucket, BString key,
             BMap<BString, Object> config) {
         try {
-            long expirationMinutes = 15;
-            if (config.containsKey(StringUtils.fromString("expirationMinutes"))) {
-                expirationMinutes = config.getIntValue(StringUtils.fromString("expirationMinutes"));
-            }
-
-            String httpMethod = "GET";
-            if (config.containsKey(StringUtils.fromString("httpMethod"))) {
-                Object methodObj = config.get(StringUtils.fromString("httpMethod"));
-                if (methodObj instanceof BString) {
-                    httpMethod = ((BString) methodObj).getValue().toUpperCase();
-                }
-            }
+            long expirationMinutes = getLongConfig(config, "expirationMinutes").orElse(15L);
+            String httpMethod = getStringConfig(config, "httpMethod").orElse("GET").toUpperCase();
 
             ConnectionConfig connConfig = getConnectionConfig(clientObj);
 
