@@ -4,50 +4,15 @@ This directory contains comprehensive examples demonstrating various features an
 
 ## Examples by Category
 
-### 1. [Authentication](authentication/)
-Demonstrates how to authenticate with AWS S3 using static credentials.
+1. [**Authentication**](https://github.com/ballerina-platform/module-ballerinax-aws.s3/tree/master/examples/authentication) - Demonstrates how to authenticate with AWS S3 using static credentials.
 
-**Features:**
-- Static credentials (Access Key ID and Secret Access Key)
-- Connection verification by listing buckets
+2. [**Bucket Operations**](https://github.com/ballerina-platform/module-ballerinax-aws.s3/tree/master/examples/bucket-operations) - Shows how to create, list, get location, and delete S3 buckets.
 
-### 2. [Bucket Operations](bucket-operations/)
-Basic S3 bucket management operations.
+3. [**Object Operations**](https://github.com/ballerina-platform/module-ballerinax-aws.s3/tree/master/examples/object-operations) - Demonstrates comprehensive object operations including upload/download with different content types (String, JSON, XML, Byte[]), metadata retrieval, copying, and existence checks.
 
-**Features:**
-- Create bucket
-- List all buckets
-- Get bucket location/region
-- Delete bucket
+4. [**Multipart Uploads**](https://github.com/ballerina-platform/module-ballerinax-aws.s3/tree/master/examples/multipart-uploads) - Shows how to handle large file uploads using S3 multipart upload API with multiple parts.
 
-### 3. [Object Operations](object-operations/)
-Comprehensive S3 object operations with different content types.
-
-**Features:**
-- Upload objects (String, JSON, XML, Byte[])
-- Download objects with type conversion
-- Get object metadata
-- Check object existence
-- Copy objects
-- List objects
-- Delete objects
-
-### 4. [Multipart Uploads](multipart-uploads/)
-Handle large file uploads using S3 multipart upload API.
-
-**Features:**
-- Create multipart upload
-- Upload parts (5MB + 5MB + 1MB)
-- Complete multipart upload
-- Helper function to generate test data
-
-### 5. [Stream Operations](stream-operations/)
-Memory-efficient streaming operations for large files.
-
-**Features:**
-- Stream upload (putObjectAsStream)
-- Stream download (getObjectAsStream)
-- Stream multipart upload (uploadPartAsStream)
+5. [**Stream Operations**](https://github.com/ballerina-platform/module-ballerinax-aws.s3/tree/master/examples/stream-operations) - Demonstrates memory-efficient streaming operations for uploading and downloading large files.
 
 ## Prerequisites
 
@@ -60,12 +25,10 @@ Memory-efficient streaming operations for large files.
 Each example requires a `Config.toml` file with your AWS credentials:
 
 ```toml
-accessKeyId = "YOUR_ACCESS_KEY_ID"
-secretAccessKey = "YOUR_SECRET_ACCESS_KEY"
+accessKeyId = "<YOUR_ACCESS_KEY_ID>"
+secretAccessKey = "<YOUR_SECRET_ACCESS_KEY>"
 bucketName = "your-bucket-name"
 ```
-
-**Important:** Never commit `Config.toml` files with real credentials to version control.
 
 ## Running an Example
 
@@ -82,49 +45,6 @@ bal build
 
 ```bash
 cd <example-name>
-bal run
-```
-
-Or with inline configuration:
-
-```bash
-bal run -- -CaccessKeyId=YOUR_KEY -CsecretAccessKey=YOUR_SECRET -CbucketName=your-bucket
-```
-
-## Quick Start
-
-### Example 1: Authentication
-
-```bash
-cd authentication
-bal run
-```
-
-### Example 2: Bucket Operations
-
-```bash
-cd bucket-operations
-bal run
-```
-
-### Example 3: Object Operations
-
-```bash
-cd object-operations
-bal run
-```
-
-### Example 4: Multipart Uploads
-
-```bash
-cd multipart-uploads
-bal run
-```
-
-### Example 5: Stream Operations
-
-```bash
-cd stream-operations
 bal run
 ```
 

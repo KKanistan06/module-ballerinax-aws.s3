@@ -1,6 +1,10 @@
-# Authentication Example
+# Authentication with AWS S3
 
-Demonstrates authentication with AWS S3 using static credentials.
+This example demonstrates authentication with Amazon S3 using the Ballerina AWS S3 connector. It showcases:
+
+- Creating an S3 client with static credentials
+- Listing all buckets to verify authentication
+- Displaying the bucket count
 
 ## Configuration
 
@@ -16,9 +20,3 @@ secretAccessKey = "YOUR_SECRET_ACCESS_KEY"
 ```bash
 bal run
 ```
-
-## What It Does
-
-1. Creates S3 client with provided credentials
-2. Lists all buckets to verify authentication
-3. Displays bucket count

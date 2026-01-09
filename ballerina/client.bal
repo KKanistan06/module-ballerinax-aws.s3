@@ -171,16 +171,15 @@ public isolated client class Client {
             } else if targetType is typedesc<json> {
                 string stringValue = check string:fromBytes(bytes);
                 return check stringValue.fromJsonStringWithType(targetType);
-            } else if targetType is typedesc<xml> {
+            } else {
                 string stringValue = check string:fromBytes(bytes);
                 return check xml:fromString(stringValue);
-            } else {
-                return bytes; //return error for unsupported types
             }
         } on fail error err {
             return error Error("Failed to convert object to target type: " + err.message(), err);
         }
     }
+
 
     # Deletes an S3 object from an S3 bucket.
     #

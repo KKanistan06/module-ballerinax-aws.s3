@@ -1,6 +1,11 @@
-# Bucket Operations Example
+# Bucket Operations with AWS S3
 
-Demonstrates basic S3 bucket management operations.
+This example demonstrates basic S3 bucket management operations with Amazon S3 using the Ballerina AWS S3 connector. It showcases:
+
+- Creating a new bucket
+- Listing all buckets in the account
+- Retrieving the bucket location (AWS region)
+- Deleting a bucket
 
 ## Configuration
 
@@ -19,18 +24,3 @@ bucketName = "my-test-bucket-12345"
 ```bash
 bal run
 ```
-
-## What It Does
-
-1. Creates a new S3 bucket
-2. Lists all buckets in your account
-3. Gets the bucket location (AWS region)
-4. Deletes the bucket
-
-## Bucket Naming Rules
-
-- Must be globally unique
-- 3-63 characters long
-- Lowercase letters, numbers, hyphens only
-- Must start with letter or number
-- Cannot be formatted as IP address
