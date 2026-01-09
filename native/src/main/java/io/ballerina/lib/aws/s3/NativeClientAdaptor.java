@@ -21,6 +21,8 @@ import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.MapType;
 import io.ballerina.runtime.api.types.PredefinedTypes;
+import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.values.BStream;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BObject;
@@ -28,6 +30,7 @@ import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BTypedesc;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.utils.XmlUtils;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
