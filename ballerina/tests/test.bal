@@ -877,7 +877,7 @@ function testGetObject() returns error? {
 }
 
 @test:Config {
-    dependsOn: [testGetObjectAsStream]
+    dependsOn: [testGetObject]
 }
 function testGetObjectAsString() returns error? {
     // Test getting object as string using the unified getObject API
