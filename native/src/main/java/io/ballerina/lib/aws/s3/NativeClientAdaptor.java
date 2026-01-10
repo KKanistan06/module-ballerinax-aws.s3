@@ -525,6 +525,8 @@ public class NativeClientAdaptor {
         }
     }
 
+
+
     public static Object deleteObject(BObject clientObj, BString bucket, BString key, BMap<BString, Object> config) {
         S3Client s3 = getClient(clientObj);
         try {
@@ -823,18 +825,8 @@ public class NativeClientAdaptor {
     public static Object createPresignedUrl(BObject clientObj, BString bucket, BString key,
             BMap<BString, Object> config) {
         try {
-            long expirationMinutes = 15;
-            if (config.containsKey(StringUtils.fromString("expirationMinutes"))) {
-                expirationMinutes = config.getIntValue(StringUtils.fromString("expirationMinutes"));
-            }
-
-            String httpMethod = "GET";
-            if (config.containsKey(StringUtils.fromString("httpMethod"))) {
-                Object methodObj = config.get(StringUtils.fromString("httpMethod"));
-                if (methodObj instanceof BString) {
-                    httpMethod = ((BString) methodObj).getValue().toUpperCase();
-                }
-            }
+            long expirationMinutes = getLongConfig(config, "expirationMinutes").orElse(15L);
+            String httpMethod = getStringConfig(config, "httpMethod").orElse("GET").toUpperCase();
 
             ConnectionConfig connConfig = getConnectionConfig(clientObj);
 
