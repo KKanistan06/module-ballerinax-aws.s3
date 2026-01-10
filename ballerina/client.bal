@@ -35,18 +35,20 @@ public isolated client class Client {
     # + return - An Error if bucket creation fails
     @display {label: "Create Bucket"}
     remote isolated function createBucket(@display {label: "Bucket Name"} string bucketName,
-            *CreateBucketConfig config) returns Error? {
-        check nativeCreateBucket(self, bucketName, config);
-    }
+            *CreateBucketConfig config) returns Error? = @java:Method {
+        name: "createBucket",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Deletes an S3 bucket.
     #
     # + bucketName - The name of the bucket
     # + return - An Error if bucket deletion fails
     @display {label: "Delete Bucket"}
-    remote isolated function deleteBucket(@display {label: "Bucket Name"} string bucketName) returns Error? {
-        check nativeDeleteBucket(self, bucketName);
-    }
+    remote isolated function deleteBucket(@display {label: "Bucket Name"} string bucketName) returns Error? = @java:Method {
+        name: "deleteBucket",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Lists all buckets in the AWS account.
     #
@@ -67,9 +69,10 @@ public isolated client class Client {
     # + return - Region string or an Error
     @display {label: "Get Bucket Location"}
     remote isolated function getBucketLocation(@display {label: "Bucket Name"} string bucketName) 
-            returns @display {label: "Region"} string|Error {
-        return check nativeGetBucketLocation(self, bucketName);
-    }
+            returns @display {label: "Region"} string|Error = @java:Method {
+        name: "getBucketLocation",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Uploads an S3 object from a file path.
     #
@@ -82,9 +85,10 @@ public isolated client class Client {
     remote isolated function putObjectFromFile(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
             @display {label: "File Path"} string filePath,
-            *PutObjectConfig config) returns Error? {
-        check nativePutObjectFromFile(self, bucketName, objectKey, filePath, config);
-    }
+            *PutObjectConfig config) returns Error? = @java:Method {
+        name: "putObjectFromFile",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Uploads an S3 object from content.
     #
@@ -113,9 +117,10 @@ public isolated client class Client {
     remote isolated function putObjectAsStream(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
             @display {label: "Content Stream"} stream<byte[], error?> contentStream,
-            *PutObjectConfig config) returns Error? {
-        check nativePutObjectWithStream(self, bucketName, objectKey, contentStream, config);
-    }
+            *PutObjectConfig config) returns Error? = @java:Method {
+        name: "putObjectWithStream",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Downloads an S3 object as a stream.
     #
@@ -157,7 +162,7 @@ public isolated client class Client {
     # + bytes - The byte array to convert
     # + targetType - The target type descriptor
     # + return - Converted value or Error
-    function getObjectInternal(byte[] bytes, typedesc<anydata> targetType) returns anydata|Error {
+    isolated function getObjectInternal(byte[] bytes, typedesc<anydata> targetType) returns anydata|Error {
         do {
             if targetType is typedesc<byte[]> {
                 return bytes;
@@ -186,9 +191,10 @@ public isolated client class Client {
     @display {label: "Delete Object"}
     remote isolated function deleteObject(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
-            *DeleteObjectConfig config) returns Error? {
-        check nativeDeleteObject(self, bucketName, objectKey, config);
-    }
+            *DeleteObjectConfig config) returns Error? = @java:Method {
+        name: "deleteObject",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Lists S3 objects in an S3 bucket.
     #
@@ -217,9 +223,10 @@ public isolated client class Client {
     remote isolated function createPresignedUrl(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
             *PresignedUrlConfig config) 
-            returns @display {label: "Presigned URL"} string|Error {
-        return check nativeCreatePresignedUrl(self, bucketName, objectKey, config);
-    }
+            returns @display {label: "Presigned URL"} string|Error = @java:Method {
+        name: "createPresignedUrl",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Gets metadata for an S3 object without downloading it.
     #
@@ -253,9 +260,10 @@ public isolated client class Client {
             @display {label: "Source Key"} string sourceKey,
             @display {label: "Destination Bucket"} string destinationBucket,
             @display {label: "Destination Key"} string destinationKey,
-            *CopyObjectConfig config) returns Error? {
-        check nativeCopyObject(self, sourceBucket, sourceKey, destinationBucket, destinationKey, config);
-    }
+            *CopyObjectConfig config) returns Error? = @java:Method {
+        name: "copyObject",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Checks if an S3 object exists in an S3 bucket.
     #
@@ -265,9 +273,10 @@ public isolated client class Client {
     @display {label: "Does Object Exist"}
     remote isolated function doesObjectExist(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey) 
-            returns @display {label: "Exists"} boolean {
-        return nativeDoesObjectExist(self, bucketName, objectKey);
-    }
+            returns @display {label: "Exists"} boolean = @java:Method {
+        name: "doesObjectExist",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Creates a multipart upload.
     #
@@ -279,9 +288,10 @@ public isolated client class Client {
     remote isolated function createMultipartUpload(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
             *MultipartUploadConfig config) 
-            returns @display {label: "Upload ID"} string|Error {
-        return check nativeCreateMultipartUpload(self, bucketName, objectKey, config);
-    }
+            returns @display {label: "Upload ID"} string|Error = @java:Method {
+        name: "createMultipartUpload",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Uploads a part in a multipart upload.
     #
@@ -320,9 +330,10 @@ public isolated client class Client {
             @display {label: "Part Number"} int partNumber,
             @display {label: "Content Stream"} stream<byte[], error?> contentStream,
             *UploadPartConfig config)
-            returns @display {label: "ETag"} string|Error {
-        return check nativeUploadPartWithStream(self, bucketName, objectKey, uploadId, partNumber, contentStream, config);
-    }
+            returns @display {label: "ETag"} string|Error = @java:Method {
+        name: "uploadPartWithStream",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Completes a multipart upload.
     #
@@ -337,9 +348,10 @@ public isolated client class Client {
             @display {label: "Object Key"} string objectKey,
             @display {label: "Upload ID"} string uploadId,
             @display {label: "Part Numbers"} int[] partNumbers,
-            @display {label: "ETags"} string[] etags) returns Error? {
-        check nativeCompleteMultipartUpload(self, bucketName, objectKey, uploadId, partNumbers, etags);
-    }
+            @display {label: "ETags"} string[] etags) returns Error? = @java:Method {
+        name: "completeMultipartUpload",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 
     # Aborts a multipart upload.
     #
@@ -350,9 +362,10 @@ public isolated client class Client {
     @display {label: "Abort Multipart Upload"}
     remote isolated function abortMultipartUpload(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
-            @display {label: "Upload ID"} string uploadId) returns Error? {
-        check nativeAbortMultipartUpload(self, bucketName, objectKey, uploadId);
-    }
+            @display {label: "Upload ID"} string uploadId) returns Error? = @java:Method {
+        name: "abortMultipartUpload",
+        'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
+    } external;
 }
 
 // NATIVE INTEROP DECLARATIONS
@@ -361,28 +374,8 @@ isolated function initClient(Client clientObj, ConnectionConfig config) returns 
     'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
 } external;
 
-isolated function nativeCreateBucket(Client self, string bucket, CreateBucketConfig config) returns Error? = @java:Method {
-    name: "createBucket",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-isolated function nativeDeleteBucket(Client self, string bucket) returns Error? = @java:Method {
-    name: "deleteBucket",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
 isolated function nativeListBuckets(Client clientObj) returns json|Error = @java:Method {
     name: "listBuckets",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-isolated function nativeGetBucketLocation(Client self, string bucket) returns string|Error = @java:Method {
-    name: "getBucketLocation",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-isolated function nativePutObjectFromFile(Client clientObj, string bucket, string key, string filePath, PutObjectConfig config) returns Error? = @java:Method {
-    name: "putObjectFromFile",
     'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
 } external;
 
@@ -391,24 +384,8 @@ isolated function nativePutObjectWithContent(Client clientObj, string bucket, st
     'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
 } external;
 
-isolated function nativePutObjectWithStream(Client clientObj, string bucket, string key, stream<byte[], error?> contentStream, PutObjectConfig config) returns Error? = @java:Method {
-    name: "putObjectWithStream",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
 isolated function nativeGetObject(Client clientObj, string bucket, string key, GetObjectConfig config) returns S3StreamResult|Error = @java:Method {
     name: "getObject",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-isolated function nativeGetObjectWithType(Client clientObj, string bucket, string key, typedesc<anydata> targetType, GetObjectConfig config) 
-        returns anydata|Error = @java:Method {
-    name: "getObjectWithType",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-isolated function nativeDeleteObject(Client clientObj, string bucket, string key, DeleteObjectConfig config) returns Error? = @java:Method {
-    name: "deleteObject",
     'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
 } external;
 
@@ -422,43 +399,7 @@ isolated function nativeHeadObject(Client self, string bucket, string key, HeadO
     'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
 } external;
 
-isolated function nativeCopyObject(Client self, string sourceBucket, string sourceKey, string destBucket, string destKey, CopyObjectConfig config) returns Error? = @java:Method {
-    name: "copyObject",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-isolated function nativeCreatePresignedUrl(Client self, string bucket, string key, PresignedUrlConfig config) returns string|Error = @java:Method {
-    name: "createPresignedUrl",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-
-isolated function nativeDoesObjectExist(Client self, string bucket, string key) returns boolean = @java:Method {
-    name: "doesObjectExist",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-isolated function nativeCreateMultipartUpload(Client self, string bucket, string key, MultipartUploadConfig config) returns string|Error = @java:Method {
-    name: "createMultipartUpload",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
 isolated function nativeUploadPart(Client self, string bucket, string key, string uploadId, int partNumber, byte[] content, UploadPartConfig config) returns string|Error = @java:Method {
     name: "uploadPart",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-isolated function nativeUploadPartWithStream(Client self, string bucket, string key, string uploadId, int partNumber, stream<byte[], error?> contentStream, UploadPartConfig config) returns string|Error = @java:Method {
-    name: "uploadPartWithStream",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-isolated function nativeCompleteMultipartUpload(Client self, string bucket, string key, string uploadId, int[] partNumbers, string[] etags) returns Error? = @java:Method {
-    name: "completeMultipartUpload",
-    'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
-} external;
-
-isolated function nativeAbortMultipartUpload(Client self, string bucket, string key, string uploadId) returns Error? = @java:Method {
-    name: "abortMultipartUpload",
     'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
 } external;
