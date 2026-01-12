@@ -21,8 +21,6 @@ import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.MapType;
 import io.ballerina.runtime.api.types.PredefinedTypes;
-import io.ballerina.runtime.api.types.Type;
-import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.values.BStream;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BObject;
@@ -30,7 +28,6 @@ import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BTypedesc;
 import io.ballerina.runtime.api.utils.StringUtils;
-import io.ballerina.runtime.api.utils.XmlUtils;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
@@ -42,6 +39,8 @@ import software.amazon.awssdk.profiles.ProfileFile;
 
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -164,7 +163,8 @@ public class NativeClientAdaptor {
         getLongConfig(config, key).ifPresent(val -> setter.accept(val.intValue()));
     }
 
-    private static void applyMetadataConfig(BMap<BString, Object> config, String key, Consumer<Map<String, String>> setter) {
+    private static void applyMetadataConfig(BMap<BString, Object> config, String key,
+            Consumer<Map<String, String>> setter) {
         getMetadataConfig(config, key).ifPresent(setter);
     }
 
@@ -176,80 +176,40 @@ public class NativeClientAdaptor {
     @SuppressWarnings("unchecked")
     public static Object initClient(Environment env, BObject clientObj, BMap<BString, Object> config) {
         try {
-            // Initialize the module reference for error creation
             S3ExceptionUtils.initModule(env);
-            
-            // Region is always at top level ConnectionConfig
-            String region = config.getStringValue(StringUtils.fromString("region")).getValue();
 
+            String region = config.getStringValue(StringUtils.fromString("region")).getValue();
             Object authObj = config.get(StringUtils.fromString("auth"));
+
             if (!(authObj instanceof BMap)) {
                 return S3ExceptionUtils.createError("Invalid auth configuration provided");
             }
+
             BMap<BString, Object> auth = (BMap<BString, Object>) authObj;
+                AwsCredentialsProvider credentialsProvider = createCredentialsProvider(auth);
 
-            AwsCredentialsProvider credentialsProvider;
+                java.util.Optional<Long> maxRetriesOpt = getLongConfig(config, "maxRetries");
 
-            // StaticAuthConfig branch
-            if (auth.containsKey(StringUtils.fromString("accessKeyId"))) {
-                String accessKeyId = auth.getStringValue(StringUtils.fromString("accessKeyId")).getValue();
-                String secretAccessKey = auth.getStringValue(StringUtils.fromString("secretAccessKey")).getValue();
-                
-                AwsCredentials credentials;
-                // Check if sessionToken is provided for temporary credentials
-                if (auth.containsKey(StringUtils.fromString("sessionToken"))) {
-                    Object sessionTokenObj = auth.get(StringUtils.fromString("sessionToken"));
-                    if (sessionTokenObj instanceof BString) {
-                        String sessionToken = ((BString) sessionTokenObj).getValue();
-                        if (!sessionToken.isEmpty()) {
-                            credentials = AwsSessionCredentials.create(accessKeyId, secretAccessKey, sessionToken);
-                        } else {
-                            credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
-                        }
-                    } else {
-                        credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
-                    }
-                } else {
-                    credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
-                }
-                credentialsProvider = StaticCredentialsProvider.create(credentials);
+                S3Client s3Client;
+                if (maxRetriesOpt.isPresent()) {
+                RetryPolicy retryPolicy = RetryPolicy.builder()
+                    .numRetries(maxRetriesOpt.get().intValue())
+                    .build();
+                ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()
+                    .retryPolicy(retryPolicy)
+                    .build();
 
-                // ProfileAuthConfig branch
-            } else if (auth.containsKey(StringUtils.fromString("profileName"))) {
-                String profileName = auth.getStringValue(StringUtils.fromString("profileName")).getValue();
-                
-                // Check if custom credentials file path is provided
-                if (auth.containsKey(StringUtils.fromString("credentialsFilePath"))) {
-                    Object credentialsFilePathObj = auth.get(StringUtils.fromString("credentialsFilePath"));
-                    if (credentialsFilePathObj instanceof BString) {
-                        String credentialsFilePath = ((BString) credentialsFilePathObj).getValue();
-                        if (!credentialsFilePath.isEmpty()) {
-                            ProfileFile profileFile = ProfileFile.builder()
-                                    .content(java.nio.file.Paths.get(credentialsFilePath))
-                                    .type(ProfileFile.Type.CREDENTIALS)
-                                    .build();
-                            credentialsProvider = ProfileCredentialsProvider.builder()
-                                    .profileFile(profileFile)
-                                    .profileName(profileName)
-                                    .build();
-                        } else {
-                            credentialsProvider = ProfileCredentialsProvider.create(profileName);
-                        }
-                    } else {
-                        credentialsProvider = ProfileCredentialsProvider.create(profileName);
-                    }
-                } else {
-                    credentialsProvider = ProfileCredentialsProvider.create(profileName);
-                }
-
-            } else {
-                return S3ExceptionUtils.createError("Unsupported auth configuration");
-            }
-
-            S3Client s3Client = S3Client.builder()
+                s3Client = S3Client.builder()
+                    .overrideConfiguration(overrideConfig)
                     .region(Region.of(region))
                     .credentialsProvider(credentialsProvider)
                     .build();
+                } else {
+                s3Client = S3Client.builder()
+                    .region(Region.of(region))
+                    .credentialsProvider(credentialsProvider)
+                    .build();
+                }
 
             clientObj.addNativeData(NATIVE_CLIENT, s3Client);
             ConnectionConfig connConfig = new ConnectionConfig(Region.of(region), credentialsProvider);
@@ -258,6 +218,66 @@ public class NativeClientAdaptor {
         } catch (Exception e) {
             return S3ExceptionUtils.createError(e);
         }
+    }
+
+    // Method for credentials provider based on auth config
+    private static AwsCredentialsProvider createCredentialsProvider(BMap<BString, Object> auth) {
+        if (auth.containsKey(StringUtils.fromString("accessKeyId"))) {
+            return createStaticCredentialsProvider(auth);
+        } else if (auth.containsKey(StringUtils.fromString("profileName"))) {
+            return createProfileCredentialsProvider(auth);
+        } else {
+            throw new IllegalArgumentException("Unsupported auth configuration");
+        }
+    }
+
+    // Handle static credentials with optional session token
+    private static AwsCredentialsProvider createStaticCredentialsProvider(BMap<BString, Object> auth) {
+        String accessKeyId = auth.getStringValue(StringUtils.fromString("accessKeyId")).getValue();
+        String secretAccessKey = auth.getStringValue(StringUtils.fromString("secretAccessKey")).getValue();
+
+        AwsCredentials credentials;
+        if (auth.containsKey(StringUtils.fromString("sessionToken"))) {
+            Object sessionTokenObj = auth.get(StringUtils.fromString("sessionToken"));
+            if (sessionTokenObj instanceof BString) {
+                String sessionToken = ((BString) sessionTokenObj).getValue();
+                if (!sessionToken.isEmpty()) {
+                    credentials = AwsSessionCredentials.create(accessKeyId, secretAccessKey, sessionToken);
+                } else {
+                    credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+                }
+            } else {
+                credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+            }
+        } else {
+            credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+        }
+
+        return StaticCredentialsProvider.create(credentials);
+    }
+
+    // Handle profile-based credentials with optional custom file path
+    private static AwsCredentialsProvider createProfileCredentialsProvider(BMap<BString, Object> auth) {
+        String profileName = auth.getStringValue(StringUtils.fromString("profileName")).getValue();
+
+        if (auth.containsKey(StringUtils.fromString("credentialsFilePath"))) {
+            Object credentialsFilePathObj = auth.get(StringUtils.fromString("credentialsFilePath"));
+            if (credentialsFilePathObj instanceof BString) {
+                String credentialsFilePath = ((BString) credentialsFilePathObj).getValue();
+                if (!credentialsFilePath.isEmpty()) {
+                    ProfileFile profileFile = ProfileFile.builder()
+                            .content(java.nio.file.Paths.get(credentialsFilePath))
+                            .type(ProfileFile.Type.CREDENTIALS)
+                            .build();
+                    return ProfileCredentialsProvider.builder()
+                            .profileFile(profileFile)
+                            .profileName(profileName)
+                            .build();
+                }
+            }
+        }
+
+        return ProfileCredentialsProvider.create(profileName);
     }
 
     private static S3Client getClient(BObject clientObj) {
@@ -317,19 +337,19 @@ public class NativeClientAdaptor {
             List<Bucket> buckets = s3.listBuckets().buckets();
             MapType mapType = TypeCreator.createMapType(PredefinedTypes.TYPE_JSON);
             BMap<BString, Object>[] bBuckets = new BMap[buckets.size()];
-            
+
             for (int i = 0; i < buckets.size(); i++) {
                 Bucket bucket = buckets.get(i);
                 BMap<BString, Object> bucketRecord = ValueCreator.createMapValue(mapType);
-                
+
                 // Set bucket name
                 bucketRecord.put(StringUtils.fromString("name"), StringUtils.fromString(bucket.name()));
-                
+
                 // Set creation date
                 Instant creationDate = bucket.creationDate();
                 String creationDateStr = creationDate != null ? creationDate.toString() : "";
                 bucketRecord.put(StringUtils.fromString("creationDate"), StringUtils.fromString(creationDateStr));
-                
+
                 // Get bucket region
                 String region = "";
                 try {
@@ -345,7 +365,7 @@ public class NativeClientAdaptor {
                     region = "";
                 }
                 bucketRecord.put(StringUtils.fromString("region"), StringUtils.fromString(region));
-                
+
                 bBuckets[i] = bucketRecord;
             }
             return ValueCreator.createArrayValue(bBuckets,
@@ -405,16 +425,16 @@ public class NativeClientAdaptor {
         }
     }
 
-    public static Object putObjectWithStream(Environment env, BObject clientObj, BString bucket, BString key, 
+    public static Object putObjectWithStream(Environment env, BObject clientObj, BString bucket, BString key,
             BStream contentStream, BMap<BString, Object> config) {
         S3Client s3 = getClient(clientObj);
         try {
             PutObjectRequest.Builder builder = PutObjectRequest.builder()
                     .bucket(bucket.getValue())
                     .key(key.getValue());
-            
+
             applyPutObjectConfig(builder, config);
-            
+
             // Buffer the stream content to get accurate length
             InputStream inputStream = new BallerinaStreamInputStream(env, contentStream);
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -426,9 +446,9 @@ public class NativeClientAdaptor {
             buffer.flush();
             byte[] contentBytes = buffer.toByteArray();
             inputStream.close();
-            
+
             s3.putObject(builder.build(), RequestBody.fromBytes(contentBytes));
-            
+
             return null;
         } catch (Exception e) {
             return S3ExceptionUtils.createError(e);
@@ -492,15 +512,14 @@ public class NativeClientAdaptor {
             ResponseBytes<GetObjectResponse> responseBytes = s3.getObjectAsBytes(builder.build());
             byte[] bytes = responseBytes.asByteArray();
             BArray byteArray = ValueCreator.createArrayValue(bytes);
-            
+
             // Call Ballerina getObjectInternal function to do the conversion
             return env.getRuntime().callMethod(
-                clientObj,
-                "getObjectInternal",
-                null,
-                byteArray,
-                targetType
-            );
+                    clientObj,
+                    "getObjectInternal",
+                    null,
+                    byteArray,
+                    targetType);
         } catch (Exception e) {
             return S3ExceptionUtils.createError(e);
         }
@@ -720,7 +739,7 @@ public class NativeClientAdaptor {
         }
     }
 
-    public static Object uploadPartWithStream(Environment env, BObject clientObj, BString bucket, BString key, 
+    public static Object uploadPartWithStream(Environment env, BObject clientObj, BString bucket, BString key,
             BString uploadId, long partNumber, BStream contentStream, BMap<BString, Object> config) {
         S3Client s3 = getClient(clientObj);
         try {
@@ -729,9 +748,9 @@ public class NativeClientAdaptor {
                     .key(key.getValue())
                     .uploadId(uploadId.getValue())
                     .partNumber((int) partNumber);
-            
+
             applyStringConfig(config, "contentMD5", builder::contentMD5);
-            
+
             InputStream inputStream = new BallerinaStreamInputStream(env, contentStream);
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             byte[] data = new byte[8192];
@@ -742,10 +761,10 @@ public class NativeClientAdaptor {
             buffer.flush();
             byte[] contentBytes = buffer.toByteArray();
             inputStream.close();
-            
-            UploadPartResponse response = s3.uploadPart(builder.build(), 
+
+            UploadPartResponse response = s3.uploadPart(builder.build(),
                     RequestBody.fromBytes(contentBytes));
-            
+
             return StringUtils.fromString(response.eTag());
         } catch (Exception e) {
             return S3ExceptionUtils.createError(e);

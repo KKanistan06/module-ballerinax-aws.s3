@@ -41,6 +41,8 @@ public type ConnectionConfig record {|
     AuthConfig auth;
     # The AWS Region
     string region;
+    # Optional maximum number of retry attempts for SDK retries
+    int maxRetries?;
 |};
 
 

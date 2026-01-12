@@ -9,9 +9,9 @@
 
 ## Overview
 
-The Ballerina AWS S3 provides the capability to manage buckets and objects in [AWS S3](https://aws.amazon.com/s3/).
+The Ballerina AWS S3 connector provides the capability to manage buckets and objects in [AWS S3](https://aws.amazon.com/s3/) through a native Ballerina interface. 
 
-This module supports [Amazon S3 REST API](https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html) `2006-03-01` version.
+Built on top of the [AWS SDK for Java v2](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/home.html), this connector offers a simplified and idiomatic way to interact with Amazon S3 services.
 
 ## Compatibility
 |                    | Version            |
