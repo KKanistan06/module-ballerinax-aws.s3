@@ -42,7 +42,13 @@ public class S3ExceptionUtils {
      * Initialize the module reference. Should be called during client initialization.
      */
     public static void initModule(Environment env) {
-        s3Module = env.getCurrentModule();
+        // Prefer module stored in ModuleUtils (set during Ballerina module init). Fall back to env.
+        Module moduleFromUtils = ModuleUtils.getModule();
+        if (moduleFromUtils != null) {
+            s3Module = moduleFromUtils;
+        } else {
+            s3Module = env.getCurrentModule();
+        }
     }
 
     /**

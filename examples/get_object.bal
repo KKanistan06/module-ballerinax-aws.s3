@@ -18,7 +18,7 @@ s3:ConnectionConfig amazonS3Config = {
 final s3:Client amazonS3Client = check new (amazonS3Config);
 
 public function main() returns error? {
-    stream<byte[], s3:Error?>|error getObjectResponse = amazonS3Client->getObjectAsStream(bucketName, "test.txt");
+    stream<byte[], error?>|error getObjectResponse = amazonS3Client->getObjectAsStream(bucketName, "test.txt");
     if getObjectResponse is error {
         log:printError("Error occurred while getting object", getObjectResponse);
     } else {

@@ -15,32 +15,32 @@ Log into the [AWS Management Console](https://console.aws.amazon.com/console). I
 1. In the AWS Management Console, search for IAM in the services search bar.
 2. Click on IAM
 
-   ![create-user-1.png](../docs/setup/resources/create-user-1.png)
+   ![create-user-1.png](../docs/setup/resources/create-user-1.jpeg)
 
 3. Click Users
 
-   ![create-user-2.png](../docs/setup/resources/create-user-2.png)
+   ![create-user-2.png](../docs/setup/resources/create-user-2.jpeg)
 
 4. Click Create User
 
-   ![create-user-3.png](../docs/setup/resources/create-user-3.png)
+   ![create-user-3.png](../docs/setup/resources/create-user-3.jpeg)
 
 5. Provide a suitable name for the user and continue
 
-   ![specify-user-details.png](../docs/setup/resources/specify-user-details.png)
+   ![specify-user-details.png](../docs/setup/resources/specify-user-details.jpeg)
 
 6. Add necessary permissions by adding the user to a user group, copy permissions or directly attach the policies. For S3, attach policies such as `AmazonS3FullAccess` (for development) or a least-privilege custom policy scoped to your buckets. Then click next.
 
-   ![set-user-permissions.png](../docs/setup/resources/set-user-permissions.png)
+   ![set-user-permissions.png](../docs/setup/resources/set-user-permissions.jpeg)
 7. Review and create the user
 
-   ![review-create-user.png](../docs/setup/resources/review-create-user.png)
+   ![review-create-user.png](../docs/setup/resources/review-create-user.jpeg)
 
 ### Get user access keys
 
 1. Click the user that was created.
 
-   ![users.png](../docs/setup/resources/users.png)
+   ![users.png](../docs/setup/resources/users.jpeg)
 
 2. Click `Create access key`.
 
