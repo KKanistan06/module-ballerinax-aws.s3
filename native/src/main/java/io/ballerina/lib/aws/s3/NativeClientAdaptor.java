@@ -39,8 +39,6 @@ import software.amazon.awssdk.profiles.ProfileFile;
 
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -186,30 +184,12 @@ public class NativeClientAdaptor {
             }
 
             BMap<BString, Object> auth = (BMap<BString, Object>) authObj;
-                AwsCredentialsProvider credentialsProvider = createCredentialsProvider(auth);
+            AwsCredentialsProvider credentialsProvider = createCredentialsProvider(auth);
 
-                java.util.Optional<Long> maxRetriesOpt = getLongConfig(config, "maxRetries");
-
-                S3Client s3Client;
-                if (maxRetriesOpt.isPresent()) {
-                RetryPolicy retryPolicy = RetryPolicy.builder()
-                    .numRetries(maxRetriesOpt.get().intValue())
-                    .build();
-                ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()
-                    .retryPolicy(retryPolicy)
-                    .build();
-
-                s3Client = S3Client.builder()
-                    .overrideConfiguration(overrideConfig)
+            S3Client s3Client = S3Client.builder()
                     .region(Region.of(region))
                     .credentialsProvider(credentialsProvider)
                     .build();
-                } else {
-                s3Client = S3Client.builder()
-                    .region(Region.of(region))
-                    .credentialsProvider(credentialsProvider)
-                    .build();
-                }
 
             clientObj.addNativeData(NATIVE_CLIENT, s3Client);
             ConnectionConfig connConfig = new ConnectionConfig(Region.of(region), credentialsProvider);
