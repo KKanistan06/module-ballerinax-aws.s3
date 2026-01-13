@@ -132,7 +132,7 @@ public isolated client class Client {
     remote isolated function getObjectAsStream(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
             *GetObjectConfig config) 
-            returns @display {label: "Byte Stream"} stream<byte[], Error?>|Error {
+            returns @display {label: "Byte Stream"} stream<byte[], error?>|Error {
         S3StreamResult streamImpl = check nativeGetObject(self, bucketName, objectKey, config);
         return new stream<byte[], Error?>(streamImpl);
     }
