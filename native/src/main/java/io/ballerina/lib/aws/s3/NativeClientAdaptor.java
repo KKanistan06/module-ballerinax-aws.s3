@@ -39,6 +39,8 @@ import software.amazon.awssdk.profiles.ProfileFile;
 
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -182,14 +184,13 @@ public class NativeClientAdaptor {
             if (!(authObj instanceof BMap)) {
                 return S3ExceptionUtils.createError("Invalid auth configuration provided");
             }
-
+          
             BMap<BString, Object> auth = (BMap<BString, Object>) authObj;
             AwsCredentialsProvider credentialsProvider = createCredentialsProvider(auth);
-
-            S3Client s3Client = S3Client.builder()
-                    .region(Region.of(region))
-                    .credentialsProvider(credentialsProvider)
-                    .build();
+            s3Client = S3Client.builder()
+                  .region(Region.of(region))
+                  .credentialsProvider(credentialsProvider)
+                  .build();
 
             clientObj.addNativeData(NATIVE_CLIENT, s3Client);
             ConnectionConfig connConfig = new ConnectionConfig(Region.of(region), credentialsProvider);
