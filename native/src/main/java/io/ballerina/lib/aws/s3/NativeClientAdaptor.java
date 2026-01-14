@@ -187,7 +187,7 @@ public class NativeClientAdaptor {
           
             BMap<BString, Object> auth = (BMap<BString, Object>) authObj;
             AwsCredentialsProvider credentialsProvider = createCredentialsProvider(auth);
-            s3Client = S3Client.builder()
+            S3Client s3Client = S3Client.builder()
                   .region(Region.of(region))
                   .credentialsProvider(credentialsProvider)
                   .build();
