@@ -184,32 +184,13 @@ public class NativeClientAdaptor {
             if (!(authObj instanceof BMap)) {
                 return S3ExceptionUtils.createError("Invalid auth configuration provided");
             }
-
+          
             BMap<BString, Object> auth = (BMap<BString, Object>) authObj;
-                AwsCredentialsProvider credentialsProvider = createCredentialsProvider(auth);
-
-                java.util.Optional<Long> maxRetriesOpt = getLongConfig(config, "maxRetries");
-
-                S3Client s3Client;
-                if (maxRetriesOpt.isPresent()) {
-                RetryPolicy retryPolicy = RetryPolicy.builder()
-                    .numRetries(maxRetriesOpt.get().intValue())
-                    .build();
-                ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()
-                    .retryPolicy(retryPolicy)
-                    .build();
-
-                s3Client = S3Client.builder()
-                    .overrideConfiguration(overrideConfig)
-                    .region(Region.of(region))
-                    .credentialsProvider(credentialsProvider)
-                    .build();
-                } else {
-                s3Client = S3Client.builder()
-                    .region(Region.of(region))
-                    .credentialsProvider(credentialsProvider)
-                    .build();
-                }
+            AwsCredentialsProvider credentialsProvider = createCredentialsProvider(auth);
+            s3Client = S3Client.builder()
+                  .region(Region.of(region))
+                  .credentialsProvider(credentialsProvider)
+                  .build();
 
             clientObj.addNativeData(NATIVE_CLIENT, s3Client);
             ConnectionConfig connConfig = new ConnectionConfig(Region.of(region), credentialsProvider);
