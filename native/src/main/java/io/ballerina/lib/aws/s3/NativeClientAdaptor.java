@@ -39,8 +39,6 @@ import software.amazon.awssdk.profiles.ProfileFile;
 
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -187,10 +185,11 @@ public class NativeClientAdaptor {
           
             BMap<BString, Object> auth = (BMap<BString, Object>) authObj;
             AwsCredentialsProvider credentialsProvider = createCredentialsProvider(auth);
+
             S3Client s3Client = S3Client.builder()
-                  .region(Region.of(region))
-                  .credentialsProvider(credentialsProvider)
-                  .build();
+                    .region(Region.of(region))
+                    .credentialsProvider(credentialsProvider)
+                    .build();
 
             clientObj.addNativeData(NATIVE_CLIENT, s3Client);
             ConnectionConfig connConfig = new ConnectionConfig(Region.of(region), credentialsProvider);
@@ -280,7 +279,7 @@ public class NativeClientAdaptor {
     // Bucket Operations
 
     public static Object createBucket(BObject clientObj, BString bucketName, BMap<BString, Object> config) {
-        S3Client s3Client = getClient(clientObj);
+        S3Client s3 = getClient(clientObj);
         String bucket = bucketName.getValue();
         try {
             CreateBucketRequest.Builder builder = CreateBucketRequest.builder().bucket(bucket);
@@ -289,9 +288,9 @@ public class NativeClientAdaptor {
             applyStringConfig(config, "objectOwnership", builder::objectOwnership);
             applyBooleanConfig(config, "objectLockEnabled", builder::objectLockEnabledForBucket);
 
-            s3Client.createBucket(builder.build());
+            s3.createBucket(builder.build());
 
-            S3Waiter s3Waiter = s3Client.waiter();
+            S3Waiter s3Waiter = s3.waiter();
             HeadBucketRequest bucketRequestWait = HeadBucketRequest.builder().bucket(bucket).build();
             s3Waiter.waitUntilBucketExists(bucketRequestWait);
 
@@ -406,34 +405,256 @@ public class NativeClientAdaptor {
         }
     }
 
+    // Constants
+    private static final int CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final int BUFFER_SIZE = 8192; // 8KB
+
+    // Main method - now supports both modes
     public static Object putObjectWithStream(Environment env, BObject clientObj, BString bucket, BString key,
             BStream contentStream, BMap<BString, Object> config) {
         S3Client s3 = getClient(clientObj);
         try {
-            PutObjectRequest.Builder builder = PutObjectRequest.builder()
-                    .bucket(bucket.getValue())
-                    .key(key.getValue());
-
-            applyPutObjectConfig(builder, config);
-
-            // Buffer the stream content to get accurate length
             InputStream inputStream = new BallerinaStreamInputStream(env, contentStream);
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            byte[] data = new byte[8192];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(data, 0, data.length)) != -1) {
-                buffer.write(data, 0, bytesRead);
+
+            // Check if contentLength is provided
+            if (config.containsKey(StringUtils.fromString("contentLength"))) {
+                return putObjectWithKnownSize(s3, bucket, key, inputStream, config);
             }
-            buffer.flush();
-            byte[] contentBytes = buffer.toByteArray();
-            inputStream.close();
 
-            s3.putObject(builder.build(), RequestBody.fromBytes(contentBytes));
+            return putObjectWithUnknownSize(s3, bucket, key, inputStream, config);
 
-            return null;
         } catch (Exception e) {
             return S3ExceptionUtils.createError(e);
         }
+    }
+
+    // Optimized path: Direct streaming when contentLength is known
+    private static Object putObjectWithKnownSize(S3Client s3, BString bucket, BString key,
+            InputStream inputStream, BMap<BString, Object> config) throws IOException {
+
+        long contentLength = config.getIntValue(StringUtils.fromString("contentLength"));
+
+        PutObjectRequest.Builder builder = PutObjectRequest.builder()
+                .bucket(bucket.getValue())
+                .key(key.getValue())
+                .contentLength(contentLength);
+        applyPutObjectConfig(builder, config);
+
+        // Stream directly to S3 without any buffering
+        s3.putObject(builder.build(), RequestBody.fromInputStream(inputStream, contentLength));
+        inputStream.close();
+
+        return null;
+    }
+
+    // Auto-chunking when contentLength is unknown
+    private static Object putObjectWithUnknownSize(S3Client s3, BString bucket, BString key,
+            InputStream inputStream, BMap<BString, Object> config) throws IOException {
+
+        // Read first chunk and determine strategy
+        ChunkData firstChunk = readFirstChunk(inputStream);
+
+        if (!firstChunk.hasMoreData) {
+            // Small file - use simple PUT
+            return putSmallFile(s3, bucket, key, firstChunk.buffer, config, inputStream);
+        }
+
+        // Large file - use multipart upload
+        return putLargeFileMultipart(s3, bucket, key, inputStream, firstChunk, config);
+    }
+
+    // Helper class to hold first chunk result
+    private static class ChunkData {
+        final ByteArrayOutputStream buffer;
+        final boolean hasMoreData;
+        final int nextByte;
+
+        ChunkData(ByteArrayOutputStream buffer, boolean hasMoreData, int nextByte) {
+            this.buffer = buffer;
+            this.hasMoreData = hasMoreData;
+            this.nextByte = nextByte;
+        }
+    }
+
+    // Read first chunk to determine if multipart is needed
+    private static ChunkData readFirstChunk(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream(CHUNK_SIZE);
+        byte[] data = new byte[BUFFER_SIZE];
+        int bytesRead;
+        int totalRead = 0;
+
+        while (totalRead < CHUNK_SIZE && (bytesRead = inputStream.read(data)) != -1) {
+            buffer.write(data, 0, bytesRead);
+            totalRead += bytesRead;
+        }
+
+        int nextByte = inputStream.read();
+        boolean hasMoreData = (nextByte != -1);
+
+        return new ChunkData(buffer, hasMoreData, nextByte);
+    }
+
+    // Handle small file upload with simple PUT
+    private static Object putSmallFile(S3Client s3, BString bucket, BString key,
+            ByteArrayOutputStream buffer, BMap<BString, Object> config, InputStream inputStream) throws IOException {
+        inputStream.close();
+
+        PutObjectRequest.Builder builder = PutObjectRequest.builder()
+                .bucket(bucket.getValue())
+                .key(key.getValue());
+        applyPutObjectConfig(builder, config);
+
+        s3.putObject(builder.build(), RequestBody.fromBytes(buffer.toByteArray()));
+        return null;
+    }
+
+    // Handle large file upload with multipart
+    private static Object putLargeFileMultipart(S3Client s3, BString bucket, BString key,
+            InputStream inputStream, ChunkData firstChunk, BMap<BString, Object> config) throws IOException {
+
+        // Initialize multipart upload
+        CreateMultipartUploadRequest.Builder builder = CreateMultipartUploadRequest.builder()
+                .bucket(bucket.getValue())
+                .key(key.getValue());
+        applyPutObjectConfigToMultipart(builder, config);
+
+        CreateMultipartUploadResponse response = s3.createMultipartUpload(builder.build());
+        String uploadId = response.uploadId();
+
+        try {
+            // Upload all parts
+            List<CompletedPart> completedParts = uploadMultipartChunks(s3, bucket, key, uploadId,
+                    inputStream, firstChunk);
+
+            inputStream.close();
+
+            // Complete the upload
+            finishMultipartUpload(s3, bucket, key, uploadId, completedParts);
+            return null;
+
+        } catch (Exception e) {
+            // Abort on error
+            abortMultipartUpload(s3, bucket, key, uploadId);
+            throw e;
+        }
+    }
+
+    // Upload all chunks for multipart upload
+    private static List<CompletedPart> uploadMultipartChunks(S3Client s3, BString bucket, BString key,
+            String uploadId, InputStream inputStream, ChunkData firstChunk) throws IOException {
+
+        List<CompletedPart> completedParts = new ArrayList<>();
+        int partNumber = 1;
+
+        // Upload first chunk
+        CompletedPart firstPart = uploadChunk(s3, bucket, key, uploadId, partNumber++,
+                firstChunk.buffer.toByteArray());
+        completedParts.add(firstPart);
+
+        // Upload remaining chunks
+        uploadRemainingChunks(s3, bucket, key, uploadId, inputStream, completedParts,
+                partNumber, firstChunk.nextByte);
+
+        return completedParts;
+    }
+
+    // Upload remaining chunks after first one
+    private static void uploadRemainingChunks(S3Client s3, BString bucket, BString key,
+            String uploadId, InputStream inputStream, List<CompletedPart> completedParts,
+            int startPartNumber, int firstByte) throws IOException {
+
+        ByteArrayOutputStream chunkBuffer = new ByteArrayOutputStream(CHUNK_SIZE);
+        byte[] data = new byte[BUFFER_SIZE];
+        int partNumber = startPartNumber;
+        int chunkSize = 1;
+        int bytesRead;
+
+        // Write the byte we read earlier
+        chunkBuffer.write(firstByte);
+
+        while ((bytesRead = inputStream.read(data)) != -1) {
+            chunkBuffer.write(data, 0, bytesRead);
+            chunkSize += bytesRead;
+
+            // Upload when chunk reaches 5MB
+            if (chunkSize >= CHUNK_SIZE) {
+                CompletedPart part = uploadChunk(s3, bucket, key, uploadId, partNumber++,
+                        chunkBuffer.toByteArray());
+                completedParts.add(part);
+
+                chunkBuffer.reset();
+                chunkSize = 0;
+            }
+        }
+
+        // Upload last chunk if any remaining
+        if (chunkSize > 0) {
+            CompletedPart lastPart = uploadChunk(s3, bucket, key, uploadId, partNumber,
+                    chunkBuffer.toByteArray());
+            completedParts.add(lastPart);
+        }
+    }
+
+    // Upload a single chunk (eliminates duplicate code)
+    private static CompletedPart uploadChunk(S3Client s3, BString bucket, BString key,
+            String uploadId, int partNumber, byte[] data) {
+
+        UploadPartRequest request = UploadPartRequest.builder()
+                .bucket(bucket.getValue())
+                .key(key.getValue())
+                .uploadId(uploadId)
+                .partNumber(partNumber)
+                .build();
+
+        UploadPartResponse response = s3.uploadPart(request, RequestBody.fromBytes(data));
+
+        return CompletedPart.builder()
+                .partNumber(partNumber)
+                .eTag(response.eTag())
+                .build();
+    }
+
+    // Complete multipart upload
+    private static void finishMultipartUpload(S3Client s3, BString bucket, BString key,
+            String uploadId, List<CompletedPart> completedParts) {
+
+        CompletedMultipartUpload completedUpload = CompletedMultipartUpload.builder()
+                .parts(completedParts)
+                .build();
+
+        CompleteMultipartUploadRequest request = CompleteMultipartUploadRequest.builder()
+                .bucket(bucket.getValue())
+                .key(key.getValue())
+                .uploadId(uploadId)
+                .multipartUpload(completedUpload)
+                .build();
+
+        s3.completeMultipartUpload(request);
+    }
+
+    // Abort multipart upload on error
+    private static void abortMultipartUpload(S3Client s3, BString bucket, BString key, String uploadId) {
+        AbortMultipartUploadRequest request = AbortMultipartUploadRequest.builder()
+                .bucket(bucket.getValue())
+                .key(key.getValue())
+                .uploadId(uploadId)
+                .build();
+        s3.abortMultipartUpload(request);
+    }
+
+    // Helper method to apply PutObject config to Multipart config
+    private static void applyPutObjectConfigToMultipart(CreateMultipartUploadRequest.Builder builder,
+            BMap<BString, Object> config) {
+        applyStringConfig(config, "contentType", builder::contentType);
+        applyStringConfig(config, "acl", builder::acl);
+        applyStringConfig(config, "storageClass", builder::storageClass);
+        applyStringConfig(config, "cacheControl", builder::cacheControl);
+        applyStringConfig(config, "contentDisposition", builder::contentDisposition);
+        applyStringConfig(config, "contentEncoding", builder::contentEncoding);
+        applyStringConfig(config, "contentLanguage", builder::contentLanguage);
+        applyStringConfig(config, "tagging", builder::tagging);
+        applyStringConfig(config, "serverSideEncryption", builder::serverSideEncryption);
+        applyMetadataConfig(config, "metadata", builder::metadata);
     }
 
     private static void applyPutObjectConfig(PutObjectRequest.Builder builder, BMap<BString, Object> config) {
@@ -494,7 +715,7 @@ public class NativeClientAdaptor {
             byte[] bytes = responseBytes.asByteArray();
             BArray byteArray = ValueCreator.createArrayValue(bytes);
 
-            // Call Ballerina getObjectInternal function to do the conversion
+            // Call Ballerina getObjectInternal method to do the conversion
             return env.getRuntime().callMethod(
                     clientObj,
                     "getObjectInternal",
@@ -703,11 +924,8 @@ public class NativeClientAdaptor {
                     .uploadId(uploadId.getValue())
                     .partNumber((int) partNumber);
 
-            // Apply optional config parameters
-            if (config != null) {
-                applyLongConfig(config, "contentLength", builder::contentLength);
-                applyStringConfig(config, "contentMD5", builder::contentMD5);
-            }
+            applyLongConfig(config, "contentLength", builder::contentLength);
+            applyStringConfig(config, "contentMD5", builder::contentMD5);
 
             UploadPartRequest request = builder.build();
             UploadPartResponse response = s3.uploadPart(request, RequestBody.fromBytes(contentBytes));
@@ -722,27 +940,29 @@ public class NativeClientAdaptor {
             BString uploadId, long partNumber, BStream contentStream, BMap<BString, Object> config) {
         S3Client s3 = getClient(clientObj);
         try {
+            // Extract required contentLength from config
+            if (!config.containsKey(StringUtils.fromString("contentLength"))) {
+                return S3ExceptionUtils.createError("contentLength is required in config for stream-based upload");
+            }
+
+            long contentLength = config.getIntValue(StringUtils.fromString("contentLength"));
+
             UploadPartRequest.Builder builder = UploadPartRequest.builder()
                     .bucket(bucket.getValue())
                     .key(key.getValue())
                     .uploadId(uploadId.getValue())
-                    .partNumber((int) partNumber);
+                    .partNumber((int) partNumber)
+                    .contentLength(contentLength);
 
             applyStringConfig(config, "contentMD5", builder::contentMD5);
 
+            // Stream directly to S3 without buffering in memory
             InputStream inputStream = new BallerinaStreamInputStream(env, contentStream);
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            byte[] data = new byte[8192];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(data, 0, data.length)) != -1) {
-                buffer.write(data, 0, bytesRead);
-            }
-            buffer.flush();
-            byte[] contentBytes = buffer.toByteArray();
-            inputStream.close();
 
             UploadPartResponse response = s3.uploadPart(builder.build(),
-                    RequestBody.fromBytes(contentBytes));
+                    RequestBody.fromInputStream(inputStream, contentLength));
+
+            inputStream.close();
 
             return StringUtils.fromString(response.eTag());
         } catch (Exception e) {
