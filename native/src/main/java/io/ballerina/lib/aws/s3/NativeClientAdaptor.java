@@ -182,7 +182,7 @@ public class NativeClientAdaptor {
             if (!(authObj instanceof BMap)) {
                 return S3ExceptionUtils.createError("Invalid auth configuration provided");
             }
-
+          
             BMap<BString, Object> auth = (BMap<BString, Object>) authObj;
             AwsCredentialsProvider credentialsProvider = createCredentialsProvider(auth);
 
