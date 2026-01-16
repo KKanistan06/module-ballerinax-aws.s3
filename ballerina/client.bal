@@ -117,7 +117,7 @@ public isolated client class Client {
     remote isolated function putObjectAsStream(@display {label: "Bucket Name"} string bucketName,
             @display {label: "Object Key"} string objectKey,
             @display {label: "Content Stream"} stream<byte[], error?> contentStream,
-            *PutObjectConfig config) returns Error? = @java:Method {
+            *PutObjectStreamConfig config) returns Error? = @java:Method {
         name: "putObjectWithStream",
         'class: "io.ballerina.lib.aws.s3.NativeClientAdaptor"
     } external;

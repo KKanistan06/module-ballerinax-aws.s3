@@ -41,8 +41,6 @@ public type ConnectionConfig record {|
     AuthConfig auth;
     # The AWS Region
     string region;
-    # Optional maximum number of retry attempts for SDK retries
-    int maxRetries?;
 |};
 
 
@@ -96,6 +94,13 @@ public type PutObjectConfig record {|
     string tagging?;
     # Encryption type ("AES256" or "aws:kms")
     string serverSideEncryption?;
+|};
+
+# Configuration for uploading an object as a stream.
+public type PutObjectStreamConfig record {|
+    *PutObjectConfig;
+    # Size of the content in bytes
+    int contentLength?;
 |};
 
 # Configuration for retrieving an object.
@@ -238,6 +243,13 @@ public type UploadPartConfig record {|
     int contentLength?;
     # MD5 hash of the part content (for data integrity check)
     string contentMD5?;
+|};
+
+# Configuration for uploading a part as a stream in a multipart upload.
+public type UploadStreamPartConfig record {|
+    *UploadPartConfig;
+    # Size of the part in bytes
+    int contentLength;
 |};
 
 # Represents a single S3 object in a listing.
