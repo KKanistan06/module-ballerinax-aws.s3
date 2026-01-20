@@ -41,8 +41,6 @@ public type ConnectionConfig record {|
     AuthConfig auth;
      # The AWS Region. If you don't specify an AWS region, Client uses US East as default region
     string region;
-    # Optional maximum number of retry attempts for SDK retries
-    int maxRetries?;
 |};
 
 
